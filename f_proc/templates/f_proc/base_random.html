@@ -1,0 +1,281 @@
+<div class="container-fluid d-flex justify-content-center align-items-center">
+  <div
+    id="myCard"
+    class="card position-relative rounded-4 border-0"
+    style="max-width: 50%"
+  >
+    <!-- 图片区域 -->
+    <div id="showContent" class="position-relative"></div>
+    <div
+      class="position-absolute bottom-0 start-0 w-100 h-25 d-flex align-items-end rounded-1" style="background: linear-gradient(to top, rgba(0, 0, 0, 1) 2%, rgba(0, 0, 0, 0)); color:#e5e7e6"
+    >
+      <div
+        id="fileTitle"
+        class="me-3 ms-2 text-truncate"
+        style="max-width: 260px"
+      ></div>
+      <div
+        id="fileMD5"
+        class="me-3 text-truncate"
+        style="max-width: 320px"
+      ></div>
+      <div
+        id="fileAlbum"
+        class="me-3 text-truncate"
+        style="max-width: 260px"
+      ></div>
+      <div
+        id="fileSubject"
+        class="me-3 text-truncate"
+        style="max-width: 260px"
+      ></div>
+    </div>
+  </div>
+</div>
+
+<div>
+  <div
+    class="btn-group justify-content-center align-items-center"
+    role="group"
+    aria-label="Basic example"
+  >
+    <!-- 刷新按钮 -->
+    <button class="btn btn-lg rounded-2" id="refresh-btn">
+      <i
+        id="fa-refresh"
+        class="fa fa-refresh fa-spin fa-lg"
+        style="color: green"
+      ></i>
+    </button>
+
+    <button id="editBTN" class="btn btn-secondary btn-sm rounded-2">
+      <i class="fa fa-edit d-none d-sm-inline"></i>
+      <span class="d-none d-sm-inline"> Edit</span>
+      <i class="fa fa-edit d-inline d-sm-none"></i>
+    </button>
+
+    <button id="downloadBTN" class="btn btn-primary btn-sm me-2 ms-2 rounded-2">
+      <i class="fa fa-download d-none d-sm-inline"></i>
+      <span class="d-none d-sm-inline"> Download</span>
+      <i class="fa fa-download d-inline d-sm-none"></i>
+    </button>
+
+    <button id="deleteBTN" class="btn btn-danger btn-sm rounded-2">
+      <i class="fa fa-trash-o d-none d-sm-inline"></i>
+      <span class="d-none d-sm-inline"> Delete</span>
+      <i class="fa fa-trash-o d-inline d-sm-none"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div
+  class="modal fade"
+  id="previewModal"
+  tabindex="-1"
+  aria-labelledby="previewModalLabel"
+  aria-hidden="true"
+>
+  <div
+    class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable"
+  >
+    <div class="modal-content border-0 rounded-3 shadow-sm">
+      <div class="modal-body">
+        <div
+          id="previewContent"
+          class="w-100 h-100 d-flex justify-content-center align-items-center"
+        >
+          <!-- Dynamic content goes here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 模态窗口，用于编辑文件信息 -->
+<div
+  class="modal fade"
+  id="editFileInfo"
+  tabindex="-1"
+  aria-labelledby="editFileInfoModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <form method="post" id="fileInfoForm" class="cc-ct-modal-form">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="editFileInfoModalLabel">更新文件信息</h5>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="name" class="form-label">名称</label>
+            <input
+              type="text"
+              class="form-control"
+              id="name"
+              name="name"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label for="album" class="form-label">Album</label>
+            <input
+              type="text"
+              class="form-control"
+              id="album"
+              name="album"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label for="subject" class="form-label">Subject</label>
+            <input
+              type="text"
+              class="form-control"
+              id="subject"
+              name="subject"
+              required
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            name="update"
+            class="btn btn-primary"
+            id="updateBtn"
+          >
+            更新
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// 获取操作元素
+const modalBody = document.getElementById("showContent");
+const fileTitleElement = document.getElementById("fileTitle");
+const fileMD5Element = document.getElementById("fileMD5");
+const fileAlbumElement = document.getElementById("fileAlbum");
+const fileSubjectElement = document.getElementById("fileSubject");
+//定义全局变量
+let displayedIndexes = [];
+let fileMD5 = "";
+let fileMime = "";
+let fileObjName = "";
+let fileObjAlbum = "";
+let fileObjSubject = "";
+
+// 设置文件信息到页面
+function setFileInfo(fileObj) {
+  fileTitleElement.innerHTML = `文件名：${fileObj.name}`;
+  fileMD5Element.innerHTML = `文件MD5值：${fileObj.md5}`;
+  fileAlbumElement.innerHTML = `文件领域：${fileObj.album}`;
+  fileSubjectElement.innerHTML = `文件标题：${fileObj.subject}`;
+}
+
+// 从文件对象中生成内容并显示
+function displayFileContent(fileObj) {
+  const data = JSON.parse(fileObj.data);
+  let content;
+
+  if (fileObj.mime.startsWith("image/")) {
+    document.getElementById("myCard").style.maxWidth = "28%";
+    fetchChunks(data, fileObj.mime).then(blob => {
+      if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+      currentObjectURL = URL.createObjectURL(blob);
+      content = `<img src="${currentObjectURL}" id="${fileObj.md5}" class="img-fluid rounded-top" alt="${fileObj.name}">`;
+      modalBody.innerHTML = content;
+      setFileInfo(fileObj);
+    }).catch(error => console.error('图片加载失败:', error));
+
+  } else if (fileObj.mime.startsWith("video/") && fileObj.hlsAddr?.endsWith("m3u8")) {
+    document.getElementById("myCard").style.maxWidth = "48%";
+    content = `<video id="${fileObj.md5}" controls class="rounded w-100">HLS流播放器</video>`;
+    modalBody.innerHTML = content;
+    setFileInfo(fileObj);
+    // 等待用户点击播放按钮
+    document.getElementById(fileObj.md5).addEventListener('mouseover', () => {
+        playEncryptedHLS(fileMD5, fileObj.hlsAddr);
+    });
+    currentVideoElement = document.getElementById(fileObj.md5);
+
+  } else if (fileObj.mime.startsWith("video/") && fileObj.fileSize < 1073741824) {
+    document.getElementById("myCard").style.maxWidth = "48%";
+    fetchChunks(data, fileObj.mime).then(blob => {
+      if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+      currentObjectURL = URL.createObjectURL(blob);
+      content = `<video src="${currentObjectURL}" id="${fileObj.md5}" controls class="w-100"></video>`;
+      modalBody.innerHTML = content;
+      setFileInfo(fileObj);
+    }).catch(error => console.error('视频加载失败:', error));
+
+  } else if (fileObj.mime.startsWith("video/") && fileObj.fileSize > 1073741824) {
+    modalBody.innerHTML = `<h2>视频文件太大，请下载后观看！</h2>`;
+    setFileInfo(fileObj);
+
+  } else {
+    modalBody.innerHTML = `<h2>无法预览该文件类型。</h2>`;
+    setFileInfo(fileObj);
+  }
+}
+
+// 随机选择文件并显示
+function setRandomImage() {
+  // 假设 file_objs 是后端传递的 JSON 数组，包含多个 file_obj 对象
+  const file_objs = {{ file_objs | safe }}; // Django 后端渲染对象传递到前端
+  //定义一个随机位置
+  let randomIndex;
+
+  // 确保还剩下未显示的文件
+  if (displayedIndexes.length === file_objs.length) {
+    alert("所有文件都已显示过！");
+    return;
+  }
+
+  // 找到一个未显示过的随机索引
+  do {
+    randomIndex = Math.floor(Math.random() * file_objs.length);
+  } while (displayedIndexes.includes(randomIndex));
+
+  // 记录已显示的索引
+  displayedIndexes.push(randomIndex);
+
+  const fileObj = file_objs[randomIndex];
+  fileMD5 = fileObj.md5;
+  fileMime = fileObj.mime;
+  fileObjName = fileObj.name;
+  fileObjAlbum = fileObj.album;
+  fileObjSubject = fileObj.subject;
+
+  // 显示文件内容
+  displayFileContent(fileObj);
+}
+
+// 事件监听器
+downloadBTN.addEventListener('click', function() {
+  downloadFile(fileMD5, fileMime);  // 模板字符串
+});
+
+editBTN.addEventListener('click', function() {
+  editFileInfo(fileMD5, fileObjName, fileObjAlbum, fileObjSubject);
+});
+
+deleteBTN.addEventListener('click', function() {
+  deleteFile(fileMD5);
+});
+
+window.onload = setRandomImage;
+document.getElementById("showContent").ondblclick = setRandomImage;
+document.getElementById('refresh-btn').onclick = setRandomImage;
+</script>

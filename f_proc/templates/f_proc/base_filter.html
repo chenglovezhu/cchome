@@ -1,0 +1,169 @@
+<div class="container mt-4">
+ 
+    {% if page_obj %}
+        <div class="list-group mt-3">
+            {% for file in page_obj.object_list %}
+                
+                {% comment %} 加入文件类型判断，根据判断结果以不同的颜色显示 {% endcomment %}
+                <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-4 mb-2 rounded" style="font-size: 0.875rem; height: 80px; background-color: {% if file.level == 'SFW'%}#d4edda{% elif file.level == 'Sketchy' %}#fff3cd{% elif file.level == 'NSFW' %}#f5c6cb{% else %}#d6d8db{% endif %};">
+                    
+                    {% comment %} 文件信息区域 {% endcomment %}
+                    <div class="d-flex flex-grow-1 me-3 align-items-center">
+                        <div class="d-flex flex-column me-3" style="flex: 2;">
+                            <h6 class="mb-1 text-truncate" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ file.name }}">
+                                {{ file.name }}
+                            </h6>
+                        </div>
+                        <div class="d-flex flex-column me-3" style="flex: 2;">
+                            <strong>MD5:</strong> {{ file.md5 }}
+                        </div>
+                        <div class="d-flex flex-column me-3" style="flex: 1;">
+                            <strong>类型:</strong> {{ file.type }}
+                        </div>
+                        <div class="d-flex flex-column" style="flex: 1;">
+                            <strong>大小:</strong> {{ file.size}} 字节
+                        </div>
+                        <div class="d-flex flex-column" style="flex: 1;">
+                            <strong>专辑:</strong> {{ file.album }}
+                        </div>
+                        <div class="d-flex flex-column" style="flex: 1;">
+                            <strong>标题:</strong> {{ file.subject }}
+                        </div>
+                    </div>
+
+                    {% comment %} 预览与下载按钮 {% endcomment %}
+                    <div class="button-container">
+                        <div class="row mb-1">
+                            <!-- Preview Button -->
+                            <div class="col">
+                            <button class="btn btn-success btn-sm w-100" onclick="previewFile('{{ file.md5 }}', '{{ file.mime }}')">
+                                <i class="fa fa-eye d-none d-sm-inline"></i>
+                                <span class="d-none d-sm-inline"> Preview</span>
+                                <i class="fa fa-eye d-inline d-sm-none"></i>
+                            </button>
+                            </div>
+                            <!-- Download Button -->
+                            <div class="col">
+                            <button class="btn btn-primary btn-sm w-100" onclick="downloadFile('{{ file.md5 }}', '{{ file.mime }}')">
+                                <i class="fa fa-download d-none d-sm-inline"></i>
+                                <span class="d-none d-sm-inline"> Download</span>
+                                <i class="fa fa-download d-inline d-sm-none"></i>
+                            </button>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <!-- Edit Button -->
+                            <div class="col">
+                            <button class="btn btn-secondary btn-sm w-100" onclick="editFileInfo('{{ file.md5 }}', '{{ file.name }}', '{{ file.album }}', '{{ file.subject }}')">
+                                <i class="fa fa-edit d-none d-sm-inline"></i>
+                                <span class="d-none d-sm-inline"> Edit</span>
+                                <i class="fa fa-edit d-inline d-sm-none"></i>
+                            </button>
+                            </div>
+                            <!-- Delete Button -->
+                            <div class="col">
+                            <button class="btn btn-danger btn-sm w-100" onclick="deleteFile('{{ file.md5 }}')">
+                                <i class="fa fa-trash-o d-none d-sm-inline"></i>
+                                <span class="d-none d-sm-inline"> Delete</span>
+                                <i class="fa fa-trash-o d-inline d-sm-none"></i>
+                            </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- 分页控制 -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <div>
+                {% if page_obj.has_previous %}
+                    <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page=1" class="btn btn-secondary btn-sm">&laquo; 首页</a>
+                    <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm">上一页</a>
+                {% endif %}
+            </div>
+
+            <div>
+                <span class="badge bg-secondary">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            </div>
+
+            <div>
+                {% if page_obj.has_next %}
+                    <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm">下一页</a>
+                    <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.paginator.num_pages }}" class="btn btn-secondary btn-sm">末页 &raquo;</a>
+                {% endif %}
+            </div>
+        </div>
+
+    {% else %}
+        <p class="mt-3">没有找到符合条件的文件。</p>
+    
+    {% endif %}
+    
+</div>
+
+  <!-- Preview Modal -->
+  <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+      <div class="modal-content border-0 rounded-3 shadow-sm">
+        <div class="modal-body">
+          <div id="previewContent" class="w-100 h-100 d-flex justify-content-center align-items-center">
+            <!-- Dynamic content goes here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模态窗口，用于编辑文件信息 -->
+  <div
+    class="modal fade"
+    id="editFileInfo"
+    tabindex="-1"
+    aria-labelledby="editFileInfoModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <form method="post" id="fileInfoForm" class="cc-ct-modal-form">
+          {% csrf_token %}
+          <div class="modal-header">
+            <h5 class="modal-title" id="editFileInfoModalLabel">更新文件信息</h5>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="name" class="form-label">名称</label>
+              <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div class="mb-3">
+              <label for="album" class="form-label">Album</label>
+              <input type="text" class="form-control" id="album" name="album" required>
+            </div>
+            <div class="mb-3">
+              <label for="subject" class="form-label">Subject</label>
+              <input type="text" class="form-control" id="subject" name="subject" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              name="update"
+              class="btn btn-primary"
+              id="updateBtn"
+
+            >
+              更新
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>

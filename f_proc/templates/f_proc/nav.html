@@ -1,0 +1,67 @@
+<header id="header">
+  {% load static %}
+  <a id="logo" href="{% url 'index' %}"
+    ><img src="{% static 'f_proc/mds/logo_sm.png' %}" alt="wallhaven"
+  /></a>
+  <div class="topmenu collapsed">
+    <nav class="topmenu-full">
+      <ul class="topmenu-primary">
+        <li>
+          <a class="toplist" href="{% url 'random' %}"
+            ><i class="fa fa-eercast"></i><span>Random</span></a
+          >
+        </li>
+        <li>
+          <a class="latest" href="{% url 'file_list' %}"
+            ><i class="fa fa-clock-o"></i><span>All</span></a
+          >
+        </li>
+        <li>
+          <a class="random" href="{% url 'file_search' %}"
+            ><i class="fa fa-random"></i><span>Filter</span></a
+          >
+        </li>
+        <li>
+          <a class="upload" href="{% url 'upload' %}"
+            ><i class="fa fa-upload"></i><span>Upload</span></a
+          >
+        </li>
+        <li>
+          <a class="forums" href="{% url 'manage_appertain' %}"
+            ><i class="fa fa-comments"></i><span>C/T</span></a
+          >
+        </li>
+        <li>
+          <a class="v2hls" href="{% url 'v2hls' %}"
+            ><i class="fa fa-refresh fa-spin"></i><span>V2hls</span></a
+          >
+        </li>
+        <li>
+          <a class="hot" href="{% url 'delete' %}"
+            ><i class="fa fa-minus-square-o"></i><span>Delete</span></a
+          >
+        </li>
+      </ul>
+    </nav>
+  </div>
+  <form
+    action="{% url 'file_search' %}"
+    method="get"
+    id="header-search"
+    class="header-search-type-text"
+  >
+    <div class="header-search-input-frame">
+      <input
+        type="search"
+        name="searchFiles"
+        id="header-search-text"
+        placeholder="Search..."
+      />
+    </div>
+    <button><i class="fa fa-search"></i></button>
+  </form>
+  <div id="userpanel">
+    <a class="button register" href="#"> Register </a
+    ><a class="button" href="#"> Login </a>
+  </div>
+</header>

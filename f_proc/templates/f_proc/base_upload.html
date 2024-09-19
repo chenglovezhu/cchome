@@ -1,0 +1,333 @@
+<div class="container my-4">
+  <form
+    id="up_form"
+    class="row g-3"
+    method="post"
+    enctype="multipart/form-data"
+  >
+    <div class="col-md-6">
+      <label for="inputAlbum" class="form-label">Album</label>
+      <input type="text" class="form-control" id="inputAlbum" name="album" />
+    </div>
+    {% comment %} 文件标题 {% endcomment %}
+    <div class="col-md-6">
+      <label for="inputSubject" class="form-label">Subject</label>
+      <input
+        type="text"
+        class="form-control"
+        id="inputSubject"
+        name="subject"
+      />
+    </div>
+    {% comment %} 文件分类 {% endcomment %}
+    <div class="input-group">
+      <select
+        id="categorySelect"
+        class="form-select"
+        aria-label="Default select example"
+        name="categorySelect"
+      >
+        <option selected>选择分类......</option>
+        {% for category in categories %}
+        <option value="{{ category.id }}">{{ category.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% comment %} 文件等级 {% endcomment %}
+    <div class="input-group">
+      <select
+        id="levelSelect"
+        class="form-select"
+        aria-label="Default select example"
+        name="levelSelect"
+      >
+        <option selected>选择文件等级</option>
+        <option value="SFW">SFW</option>
+        <option value="Sketchy">Sketchy</option>
+        <option value="NSFW">NSFW</option>
+      </select>
+    </div>
+    {% comment %} 文件标签 {% endcomment %}
+    <div class="input-group flex-nowrap">
+      <span class="input-group-text" id="addon-wrapping">Tags</span>
+      <input
+        type="text"
+        class="form-control cchome-tags"
+        placeholder="tags"
+        aria-label="tags"
+        aria-describedby="addon-wrapping"
+        name="manyTags"
+        id="manyTags"
+      />
+    </div>
+    {% comment %} 文件上传框 {% endcomment %}
+    <div id="selectUploadFiles" class="up-f-icon dropzone">
+      <i class="fa fa-files-o fa-3x"></i>
+      <p class="text-center ms-4 my-2">拖拽文件到这里或点击这里选择文件</p>
+    </div>
+    {% comment %} 文件上传按钮 {% endcomment %}
+    <input
+      type="file"
+      class="form-control d-none"
+      id="inputGroupFile01"
+      name="file_field"
+      multiple
+    />
+    {% comment %} 上传文件显示列表 {% endcomment %}
+    <ul id="fileList" class="list-group list-group-flush"></ul>
+    {% comment %} 上传文件显示进度条 {% endcomment %}
+    <div id="progressContainer" class="my-3"></div>
+    {% comment %} 上传和清理按钮 {% endcomment %}
+    <div class="col-12 d-flex justify-content-end">
+      <button id="reset_form" type="button" class="btn btn-secondary me-2">
+        清理
+      </button>
+      <button id="up_go" type="button" class="btn btn-primary">GO</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // 当DOM内容完全加载后，执行以下代码
+
+    // 获取页面上的CSRF令牌，以确保POST请求的安全性
+    const csrfMetaTag = document.querySelector('meta[name="csrf-token"]');
+    let csrfToken = null;
+
+    if (csrfMetaTag) {
+      csrfToken = csrfMetaTag.getAttribute("content");
+      console.log("CSRF Token:", csrfToken); // 在控制台中输出CSRF令牌（仅用于调试）
+    } else {
+      console.error("CSRF meta tag not found!");
+    }
+
+    // 获取页面上用于文件选择和显示的HTML元素
+    const dropzone = document.getElementById("selectUploadFiles");
+    const fileInput = document.getElementById("inputGroupFile01");
+    const fileList = document.getElementById("fileList");
+    const upGoButton = document.getElementById("up_go");
+    const resetButton = document.getElementById("reset_form");
+
+    let allFiles = []; // 用于跟踪所有选择的待上传文件的数组
+
+    // 处理文件拖拽到拖放区域的事件
+    dropzone.addEventListener("dragover", function (event) {
+      event.preventDefault(); // 阻止默认行为（阻止浏览器打开文件）
+      event.stopPropagation(); // 阻止事件冒泡
+      dropzone.classList.add("bg-light"); // 添加背景色以提示用户可以放置文件
+    });
+
+    // 处理文件拖出拖放区域的事件
+    dropzone.addEventListener("dragleave", function (event) {
+      event.preventDefault(); // 阻止默认行为
+      event.stopPropagation(); // 阻止事件冒泡
+      dropzone.classList.remove("bg-light"); // 移除背景色
+    });
+
+    // 处理文件被放到拖放区域的事件
+    dropzone.addEventListener("drop", function (event) {
+      event.preventDefault(); // 阻止默认行为
+      event.stopPropagation(); // 阻止事件冒泡
+      dropzone.classList.remove("bg-light"); // 移除背景色
+      handleFiles(event.dataTransfer.files); // 处理放置的文件
+    });
+
+    // 处理点击拖放区域以打开文件选择对话框的事件
+    dropzone.addEventListener("click", function () {
+      fileInput.click(); // 触发文件输入的点击事件，打开文件选择对话框
+    });
+
+    // 处理文件输入更改事件（即用户选择了文件）
+    fileInput.addEventListener("change", function () {
+      handleFiles(fileInput.files); // 处理选择的文件
+    });
+
+    // 处理文件的函数
+    function handleFiles(files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        // 如果文件列表中没有这个文件，则添加到列表
+        if (
+          !allFiles.find((f) => f.name === file.name && f.size === file.size)
+        ) {
+          allFiles.push(file); // 将文件添加到所有文件数组
+
+          // 创建文件项的HTML结构
+          const listItem = document.createElement("li");
+          listItem.className =
+            "list-group-item d-flex flex-column rounded-2 small cchome-listItem";
+
+          // 文件名和大小的容器
+          const fileInfo = document.createElement("div");
+          fileInfo.className = "mb-2"; // 为间距添加底部外边距
+
+          const fileName = document.createElement("span");
+          fileName.textContent = file.name; // 显示文件名
+
+          const fileSize = document.createElement("span");
+          fileSize.className = "text-muted";
+          fileSize.textContent = file.size + " bytes"; // 显示文件大小
+
+          fileInfo.appendChild(fileName); // 将文件名添加到文件信息容器
+          fileInfo.appendChild(fileSize); // 将文件大小添加到文件信息容器
+
+          // 进度条的容器
+          const progressContainer = document.createElement("div");
+          progressContainer.className = "progress";
+          progressContainer.style.width = "100%"; // 确保进度条容器宽度为100%
+
+          // 进度条本身
+          const progressBar = document.createElement("div");
+          progressBar.className = "progress-bar bg-primary";
+          progressBar.role = "progressbar";
+          progressBar.style.width = "0%"; // 初始化进度条宽度为0%
+          progressBar.setAttribute("aria-valuenow", "0"); // 设置进度条当前值为0
+          progressBar.setAttribute("aria-valuemin", "0"); // 设置进度条最小值为0
+          progressBar.setAttribute("aria-valuemax", "100"); // 设置进度条最大值为100
+          progressBar.textContent = "0%"; // 初始化进度条文本为0%
+
+          progressContainer.appendChild(progressBar); // 将进度条添加到进度条容器
+
+          listItem.appendChild(fileInfo); // 将文件信息容器添加到文件项
+          listItem.appendChild(progressContainer); // 将进度条容器添加到文件项
+          fileList.appendChild(listItem); // 将文件项添加到文件列表
+        }
+      }
+    }
+
+    // 上传文件的函数
+    function uploadFile(file) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest(); // 创建XMLHttpRequest对象
+        const formData = new FormData(); // 创建FormData对象用于提交文件数据
+        formData.append("file_field", file); // 添加文件到FormData对象
+        formData.append("album", document.getElementById("inputAlbum").value); // 添加其他表单数据
+        formData.append(
+          "subject",
+          document.getElementById("inputSubject").value
+        );
+        formData.append(
+          "categorySelect",
+          document.getElementById("categorySelect").value
+        );
+        formData.append(
+          "levelSelect",
+          document.getElementById("levelSelect").value
+        );
+        formData.append("manyTags", document.getElementById("manyTags").value);
+
+        xhr.open("POST", '{% url "save_file_data" %}'); // 配置请求的URL
+        xhr.setRequestHeader("X-CSRFToken", csrfToken); // 设置CSRF令牌头
+
+        // 处理上传进度的事件
+        xhr.upload.onprogress = function (event) {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round(
+              (event.loaded / event.total) * 100
+            ); // 计算完成百分比
+            updateProgress(file.name, percentComplete); // 更新进度条
+          }
+        };
+
+        // 处理请求完成的事件
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText); // 解析JSON响应
+            updateProgressStatus(file.name, response); // 更新进度条状态
+            resolve(xhr.response); // 成功时返回响应
+          } else {
+            reject(new Error("上传文件失败: " + xhr.statusText)); // 失败时返回错误
+          }
+        };
+
+        // 处理请求错误的事件
+        xhr.onerror = function () {
+          reject(new Error("上传错误")); // 返回错误
+        };
+
+        xhr.send(formData); // 发送请求
+      });
+    }
+
+    // 更新进度条的函数
+    function updateProgress(fileName, percentComplete) {
+      const listItem = [...fileList.children].find(
+        (item) => item.querySelector("span").textContent === fileName
+      ); // 找到对应的文件项
+      if (listItem) {
+        const progressContainer = listItem.querySelector(".progress"); // 获取进度条容器
+        if (progressContainer) {
+          const progressBar = progressContainer.querySelector(".progress-bar"); // 获取进度条
+          progressBar.style.width = `${percentComplete}%`; // 更新进度条宽度
+          progressBar.setAttribute("aria-valuenow", percentComplete); // 更新进度条当前值
+          progressBar.textContent = `${percentComplete}%`; // 更新进度条文本
+        }
+      }
+    }
+
+    // 根据服务器返回的上传结果更新文件列表中每个文件的进度条状态
+    function updateProgressStatus(fileName, response) {
+      const listItem = [...fileList.children].find(
+        (item) => item.querySelector("span").textContent === fileName
+      );
+      if (listItem) {
+        const progressBar = listItem.querySelector(".progress-bar");
+        const successFiles = response.successful || [];
+        const existFiles = response.exist || [];
+        const failedFiles = response.failed || [];
+
+        if (successFiles.some((f) => f.name === fileName)) {
+          progressBar.style.width = "100%";
+          progressBar.classList.add("bg-success");
+          progressBar.textContent = "100% (上传成功)";
+        } else if (existFiles.some((f) => f.name === fileName)) {
+            const file = existFiles.find((f) => f.name === fileName);
+            if (file) {
+              progressBar.style.width = "100%";
+              progressBar.classList.add("bg-warning");
+              progressBar.textContent = `0% (文件已存在: ${file.md5})`;
+            } else {
+              progressBar.style.width = "0%";
+              progressBar.classList.remove("bg-warning");
+              progressBar.textContent = "0% (文件存在检查失败)";
+            }
+        } else if (failedFiles.some((f) => f.name === fileName)) {
+          progressBar.style.width = "100%";
+          progressBar.classList.add("bg-danger");
+          progressBar.textContent = "0% (上传失败)";
+        }
+      }
+    }
+
+    // 处理点击上传按钮的事件
+    upGoButton.addEventListener("click", function () {
+      const uploadPromises = allFiles.map((file) => uploadFile(file)); // 为每个文件创建上传Promise
+      Promise.all(uploadPromises)
+        .then(() => {
+          //alert("所有文件上传成功！"); // 所有文件成功上传后显示提示
+        })
+        .catch((error) => {
+          alert("上传文件时发生错误: " + error.message); // 上传发生错误时显示提示
+        });
+    });
+
+    // 处理清理按钮点击事件
+    resetButton.addEventListener("click", function () {
+      // 重置所有表单字段
+      document.getElementById("up_form").reset();
+
+      // 清空文件列表
+      fileList.innerHTML = "";
+
+      // 清空文件数组
+      allFiles = [];
+
+      // 重置Dropzone背景色
+      dropzone.classList.remove("bg-light");
+
+      // 清空上传进度条
+      document.getElementById("progressContainer").innerHTML = "";
+    });
+  });
+</script>

@@ -1,0 +1,166 @@
+@font-face {
+  font-family: "QwitcherGrypen";
+  src: url("../fonts/QwitcherGrypen-Bold.ttf") format("woff2"),
+    url("../fonts/QwitcherGrypen-Bold.ttf") format("woff"),
+    url("../fonts/QwitcherGrypen-Bold.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+.main-container {
+  width: 95%;
+  margin: 80px auto;
+}
+
+.up-f {
+  width: 70%;
+  margin: 20px auto;
+}
+
+.up-f-icon {
+  width: 100%;
+  height: 240px; /* 必须指定容器高度来实现垂直居中 */
+  justify-content: center; /* 水平居中 */
+  align-items: center; /* 垂直居中 */
+  border: 1px solid rgb(172, 172, 180); /* 2px 宽的蓝色实线边框 */
+  border-radius: 12px;
+  display: flex;
+}
+
+.up-go {
+  float: right;
+}
+
+#selectUploadFiles.drag-over {
+  border: 2px dashed #007bff;
+  background-color: #f0f8ff;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px;
+  border-bottom: 1px solid #ddd;
+}
+
+.file-item button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 2px 5px;
+  cursor: pointer;
+}
+
+.delete-btn {
+  display: inline-block;
+  margin-left: 88px;
+  padding: 2px 5px;
+  font-size: 16px;
+  font-weight: 260;
+  text-align: center;
+  text-decoration: none;
+  color: #f2eeee;
+  background-color: #797a7b;
+  border: none;
+  border-radius: 5px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.delete-btn:hover {
+  background-color: #e11c06;
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+.delete-btn:active {
+  background-color: #e73d09;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+  transform: translateY(2px);
+}
+
+.delete-btn:disabled {
+  background-color: #d6d6d6;
+  color: #a0a0a0;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+#addCategory {
+  padding: 4px 8px; /* 调整按钮的内边距 */
+  font-size: 0.875rem; /* 调整字体大小 */
+}
+.cc-font-ct-h2 {
+  font-family: STXingkai;
+}
+
+.cc-font-ct-h3 {
+  font-family: STXingkai;
+  font-size: 24px;
+}
+
+.modal-body {
+  max-height: 80vh; /* Limit the height of the modal body */
+  overflow-y: auto; /* Enable vertical scrolling if content overflows */
+  background-color: #282626;
+}
+
+.modal-footer {
+  background-color: #282626;
+}
+
+#previewContent img {
+  max-width: 100%;
+  max-height: 100%; /* Ensures the image fits within the modal body */
+  margin: auto;
+  object-fit: contain; /* Ensures image is contained within the modal */
+}
+
+.btn-custom-width {
+  width: 120px; /* 根据需要调整宽度 */
+}
+
+.main-container input[type="text"] {
+  background-color: #ffffff;
+}
+
+.main-container input[type="text"]:focus {
+  background-color: #ffffff;
+}
+
+.main-container .cchome-tags {
+  height: 100%;
+}
+
+.cchome-listItem {
+  background-color: #353434;
+}
+
+.cchome-listItem span {
+  color: #ffffff;
+}
+
+.cc-ct-li-bk {
+  background-color: #d6d6d6;
+  margin-top: 5px;
+}
+
+.cc-ct-modal-form {
+  background-color: #3e3d3d;
+}
+
+.cc-ct-modal-form .form-label {
+  float: left;
+}
+
+.v2hls {
+  margin-top: 10%;
+}
+
+.v2hls-btn {
+  margin-left: 3px !important;
+}
+
+.button-container {
+  width: 200px !important;
+}

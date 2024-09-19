@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+  mysql_db:
+    image: mysql:9.0.1
+    environment:
+      MYSQL_DATABASE: ccpav
+      MYSQL_USER: ccav
+      MYSQL_PASSWORD: cheng00..
+      MYSQL_ROOT_PASSWORD: cheng00..
+    volumes:
+      - /Users/cc/Documents/CC_Self/CCFiles/Mysql/data:/var/lib/mysql
+      - /Users/cc/Documents/CC_Self/CCFiles/Mysql/conf:/etc/mysql/conf.d
+      - /Users/cc/Documents/CC_Self/CCFiles/Mysql/log:/var/log/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - ccnet
+
+  ccfiles:
+    image: ccfiles:v1.2.6
+    command: >
+      bash -c "while ! nc -z mysql_db 3306; do sleep 1; done;
+      python manage.py collectstatic --noinput;
+      python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - /Users/cc/Documents/CC_Self/CCFiles/Files:/app/media
+      - /Users/cc/Documents/CC_Self/CCFiles/Staticfiles:/app/staticfiles
+      - /Users/cc/Documents/CC_Self/CCFiles/logs:/app/logs
+    environment:
+      - DB_NAME=ccpav
+      - DB_USER=root
+      - DB_PASSWORD=cheng00..
+      - DB_HOST=mysql_db
+      - DB_PORT=3306
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql_db
+    networks:
+      - ccnet
+
+  nginx:
+    image: nginx:stable-perl
+    container_name: nginx
+    volumes:
+      - /Users/cc/Documents/CC_Self/CCFiles/Nginx/conf.d:/etc/nginx/conf.d
+      - /Users/cc/Documents/CC_Self/CCFiles/Files:/usr/share/nginx/html
+      - /Users/cc/Documents/CC_Self/CCFiles/Staticfiles:/usr/share/staticfiles
+      - /Users/cc/Documents/CC_Self/CCFiles/Nginx/logs:/var/log/nginx
+    ports:
+      - "8888:80"
+    depends_on:
+      - ccfiles
+    networks:
+      - ccnet
+
+networks:
+  ccnet:
+    driver: bridge

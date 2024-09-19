@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="description" content="" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title></title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'f_proc/css/bootstrap.min.css' %}" />
+    <link rel="stylesheet" href="{% static 'f_proc/css/font-awesome.min.css' %}" />
+    <link rel="stylesheet" href="{% static 'f_proc/css/all.css' %}" />
+    <link rel="stylesheet" href="{% static 'f_proc/css/wallhaven-min.css' %}" />
+</head>
+<body>
+    <header>
+        {% block header %}
+        <!-- Default header content -->
+        {% endblock %}
+    </header>
+
+    <main class="main-container">
+        {% block content %}
+        <!-- Default content -->
+        {% endblock %}
+    </main>
+
+    <footer>
+        {% block footer %}
+        <!-- Default footer content -->
+        {% endblock %}
+    </footer>
+
+    <!-- JavaScript files -->
+    <script src="{% static 'f_proc/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'f_proc/js/hls.js' %}"></script>
+    <script src="{% static 'f_proc/js/all.js' %}"></script>
+    {% block extra_js %}
+    <!-- Additional JavaScript code can be included here -->
+    {% endblock %}
+</body>
+</html>

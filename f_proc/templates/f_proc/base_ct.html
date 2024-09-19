@@ -1,0 +1,205 @@
+<div class="container mt-5 cc-ct-container">
+  <!-- 分类管理标题和新增分类按钮并排 -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="cc-font-ct-h3">当前分类</h3>
+    <button
+      id="addCategory"
+      type="button"
+      class="btn btn-success btn-lg"
+      data-bs-toggle="modal"
+      data-bs-target="#addCategoryModal"
+    >
+      新增分类
+    </button>
+  </div>
+
+  <!-- 分类列表 -->
+  <ul class="list-group mb-4">
+    {% for appertain in appertains %}
+    <li
+      class="list-group-item d-flex justify-content-between align-items-center cc-ct-li-bk rounded-2"
+    >
+      <span>{{ appertain.name }} - {{ appertain.get_flag_display }}</span>
+      <div>
+        <button
+          class="btn btn-sm btn-warning"
+          onclick="editAppertain({{ appertain.id }}, '{{ appertain.name }}', '{{ appertain.flag }}', '{{ appertain.parent.id }}')"
+        >
+          编辑
+        </button>
+
+        <form
+          method="post"
+          class="d-inline-block"
+          style="margin-left: 10px"
+          action="{% url 'manage_appertain' appertain.id %}"
+        >
+          {% csrf_token %}
+          <button type="submit" name="delete" class="btn btn-sm btn-danger">
+            删除
+          </button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <!-- 模态窗口，用于新增和编辑分类 -->
+  <div
+    class="modal fade"
+    id="addCategoryModal"
+    tabindex="-1"
+    aria-labelledby="addCategoryModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <form method="post" id="appertainForm" class="cc-ct-modal-form">
+          {% csrf_token %}
+          <div class="modal-header">
+            <h5 class="modal-title" id="addCategoryModalLabel">新增分类</h5>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="id_name" class="form-label">名称</label>
+              <input
+                type="text"
+                class="form-control"
+                id="id_name"
+                name="name"
+                required
+              />
+            </div>
+            <div class="mb-3">
+              <label for="id_flag" class="form-label">标志</label>
+              <select class="form-select" id="id_flag" name="flag" required>
+                <!-- 这里添加标志选项 -->
+                {% for choice in form.fields.flag.widget.choices %}
+                <option value="{{ choice.0 }}">{{ choice.1 }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="id_parent" class="form-label">父分类</label>
+              <select class="form-select" id="id_parent" name="parent">
+                <option value="">无父分类</option>
+                <!-- 这里添加父分类选项 -->
+                {% for appertain in appertains %}
+                <option value="{{ appertain.id }}">{{ appertain.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              name="add"
+              class="btn btn-primary"
+              id="addBtn"
+            >
+              保存
+            </button>
+            <button
+              type="submit"
+              name="update"
+              class="btn btn-primary"
+              id="updateBtn"
+              style="display: none"
+            >
+              更新
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 追踪哪个按钮被点击
+  let clickedButton = null;
+
+  document.querySelectorAll("button[type=submit]").forEach((button) => {
+    button.addEventListener("click", function () {
+      clickedButton = this; // 记录点击的按钮
+    });
+  });
+
+  // 拦截表单提交事件
+  document.querySelectorAll("form").forEach((form) => {
+    form.addEventListener("submit", function (event) {
+      event.preventDefault(); // 阻止表单默认提交
+      const form = this;
+      const formData = new FormData(form); // 获取表单数据
+      // 获取点击的按钮 name 属性，判断是 add 还是 update
+      if (clickedButton) {
+        formData.append(clickedButton.name, clickedButton.value);
+      }
+
+      const url = form.action;
+
+      // 发送异步请求
+      fetch(url, {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json()) // 假设后端返回 JSON 数据
+        .then((data) => {
+          // 根据返回的 JSON 数据进行相应的处理
+          if (data.status === "success") {
+            // 成功处理逻辑，比如弹出成功提示框
+            alert(data.message);
+            // 重新加载页面以刷新分类列表
+            location.reload();
+          } else if (data.status === "error") {
+            // 失败处理逻辑，比如弹出错误提示框
+            alert(data.message);
+          }
+        })
+        .catch((error) => {
+          console.error("提交失败:", error);
+          alert("提交失败，请检查网络或联系管理员。");
+        });
+    });
+  });
+
+  //当点击分类时，调用该方法
+  function editAppertain(id, name, flag, parentId) {
+    document.getElementById("addCategoryModalLabel").textContent = "编辑分类";
+    document.getElementById("id_name").value = name;
+    document.getElementById("id_flag").value = flag;
+
+    const parentField = document.getElementById("id_parent");
+    parentField.value = parentId || "";
+
+    document.getElementById("addBtn").style.display = "none";
+    document.getElementById("updateBtn").style.display = "inline-block";
+
+    const form = document.getElementById("appertainForm");
+    form.action = `{% url 'manage_appertain' %}${id}/`;
+
+    const modal = new bootstrap.Modal(
+      document.getElementById("addCategoryModal")
+    );
+    modal.show();
+  }
+  //监听当弹窗隐藏时，将弹窗元素重置
+  document
+    .getElementById("addCategoryModal")
+    .addEventListener("hidden.bs.modal", function () {
+      document.getElementById("appertainForm").reset();
+      document.getElementById("addCategoryModalLabel").textContent = "新增分类";
+      document.getElementById("addBtn").style.display = "inline-block";
+      document.getElementById("updateBtn").style.display = "none";
+
+      const form = document.getElementById("appertainForm");
+      form.action = `{% url 'manage_appertain' %}`;
+    });
+</script>
