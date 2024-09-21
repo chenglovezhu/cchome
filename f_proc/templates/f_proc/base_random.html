@@ -205,7 +205,7 @@ function displayFileContent(fileObj) {
     modalBody.innerHTML = content;
     setFileInfo(fileObj);
     // 等待用户点击播放按钮
-    document.getElementById(fileObj.md5).addEventListener('mouseover', () => {
+    document.getElementById(fileObj.md5).addEventListener('onclick', () => {
         playEncryptedHLS(fileMD5, fileObj.hlsAddr);
     });
     currentVideoElement = document.getElementById(fileObj.md5);

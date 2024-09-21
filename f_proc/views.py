@@ -27,6 +27,14 @@ def custom_404_view(request, exception):
     return render(request, 'f_proc/404.html', status=404)
 
 # 上传文件页面
+def upload_dir(request):
+    try:
+        categories = FileAppertain.objects.filter(flag="C")
+    except Exception as e:
+        logger.error(f"获取分类时出错: {str(e)}")
+        categories = []  # 错误情况下使用空列表
+    return render(request, 'f_proc/upload_dir.html', {'categories': categories})
+
 def upload(request):
     try:
         categories = FileAppertain.objects.filter(flag="C")
@@ -472,7 +480,7 @@ def delete_file(request, md5):
         
         # Ensure the directory exists before attempting to remove it
         if os.path.exists(file_dir):
-            shutil.rmtree(file_dir)
+            shutil.move(file_dir, os.path.join('media', 'RecycleBin'))
             try:
                 file_obj.status = "delete"
                 file_obj.save()

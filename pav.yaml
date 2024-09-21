@@ -18,7 +18,7 @@ services:
       - ccnet
 
   ccfiles:
-    image: ccfiles:v1.2.6
+    image: ccfiles:v1.2.8
     command: >
       bash -c "while ! nc -z mysql_db 3306; do sleep 1; done;
       python manage.py collectstatic --noinput;

@@ -5,6 +5,7 @@ urlpatterns = [
     path("random/", views.random_all, name="random"),
     path("myrandom/", views.random_filter, name="random_filter"),
     path("upload/", views.upload, name="upload"),
+    path("upload_dir/", views.upload_dir, name="upload_dir"),
     path("list/", views.file_list, name="file_list"),
     path("data/<str:md5>/", views.get_file_data, name="get_file_data"),
     path("upload_files/", views.save_file_data, name="save_file_data"),
