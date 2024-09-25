@@ -1,19 +1,19 @@
 import os
 import uuid
 import json
-import threading
-import logging
 import shutil
+import logging
+import threading
 from datetime import datetime
+from django.utils import timezone
+from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
-from django.http import JsonResponse
-from django.utils import timezone
-from django.core.paginator import Paginator
 from django.db.models import Q
+from django.core.paginator import Paginator
 from .forms import FileInfoForm, FileAppertainForm
 from .models import FileInfo, FileRelationship, FileAppertain
-from .fproc import get_f_ext, get_md5, reset_auto_increment, generate_encryption_key, convert_to_encrypted_hls
+from .fproc import get_f_ext, get_md5, reset_auto_increment, generate_encryption_key, convert_to_encrypted_hls, get_image_wh
 
 # 设置日志
 logger = logging.getLogger("f_proc")
@@ -26,7 +26,7 @@ v2hls_task_status_lock = threading.Lock()
 def custom_404_view(request, exception):
     return render(request, 'f_proc/404.html', status=404)
 
-# 上传文件页面
+# 上传多文件页面
 def upload_dir(request):
     try:
         categories = FileAppertain.objects.filter(flag="C")
@@ -35,6 +35,7 @@ def upload_dir(request):
         categories = []  # 错误情况下使用空列表
     return render(request, 'f_proc/upload_dir.html', {'categories': categories})
 
+# 上传单文件页面
 def upload(request):
     try:
         categories = FileAppertain.objects.filter(flag="C")
@@ -51,7 +52,7 @@ def file_list(request):
         logger.error(f"获取文件列表时出错: {str(e)}")
         file_info_list = FileInfo.objects.none()  # 遇到错误时返回空查询集
     
-    paginator = Paginator(file_info_list, 15)  # 每页显示15个文件
+    paginator = Paginator(file_info_list, 20)  # 每页显示15个文件
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -122,7 +123,8 @@ def save_file_data(request):
         subject = request.POST.get('subject')
         category_id = request.POST.get('categorySelect')
         level = request.POST.get('levelSelect')
-
+        img_wh = {"w":None, "h":None}
+        
         # 定义上传文件的结果
         upload_result = {"successful":[], 
                          "exist":[], 
@@ -130,15 +132,30 @@ def save_file_data(request):
                          }
         
         for file in files:
+            # 获取文件基础信息
             file_md5 = get_md5(file)
             exist_file = FileInfo.objects.filter(md5=file_md5).first()
+            # 判断文件是否已经存在
             if exist_file:
                 upload_result['exist'].append({'name': file.name, 'md5': file_md5})
+                logger.error(f"文件：\"{file.name}\"已存在，请检查！")
                 continue
-
+            # 如果上传文件为图片，则获取其宽度与高度
+            try:
+                if file.content_type.startswith('image'):
+                    img_wh['w'], img_wh['h'] = get_image_wh(file)
+            except (IOError, ValueError) as e:
+                # 捕获与文件操作相关的异常
+                logger.error(f"文件：\"{file.name}：{file_md5}\"读取错误或图片格式不正确: {e}")
+            except Exception as e:
+                # 捕获其他未知错误
+                logger.error(f"读取文件：\"{file.name}：{file_md5}\"时，遇到错误: {e}")
+            
+            # 文件基础信息
             file_info = FileInfo(
                 name=file.name,
                 mime=file.content_type,
+                wh=img_wh,
                 size=file.size,
                 type=get_f_ext(file)['file_extension'],
                 album=album,
@@ -147,6 +164,7 @@ def save_file_data(request):
                 md5=file_md5,
             )
             
+            # 开始上传文件
             try:
                 # 开始处理上传文件
                 handle_uploaded_file(file, file_info)
@@ -231,7 +249,7 @@ def get_file_data(request, md5):
     try:
         file_obj = FileInfo.objects.get(md5=md5)
         file_obj.data = json.loads(file_obj.data)
-        return JsonResponse({'fileName':file_obj.name, 'fileDatas': file_obj.data, 'fileType':file_obj.type, 'fileSize':file_obj.size, 'hlsAddr':file_obj.hls_addr})
+        return JsonResponse({'fileName':file_obj.name, 'fileDatas': file_obj.data, 'fileType':file_obj.type, 'wh':file_obj.wh, 'fileSize':file_obj.size, 'hlsAddr':file_obj.hls_addr})
     except FileInfo.DoesNotExist:
         return JsonResponse({'error': '文件未找到'}, status=404)
     except Exception as e:
@@ -248,7 +266,7 @@ def file_search(request):
         if data:
             files = files.filter(Q(name__icontains=data) | Q(md5__icontains=data) | Q(album__icontains=data) | Q(subject=data))
 
-        paginator = Paginator(files, 15)
+        paginator = Paginator(files, 20)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
         tags = FileAppertain.objects.all()
@@ -307,9 +325,11 @@ def vFile_to_HLS_task(md5):
         # 生成视频流密钥
         keyInfo = generate_encryption_key(keyDir)
         # 将视频转换为HLS流
-        m3u8 = convert_to_encrypted_hls(vf_path, hlsDir, keyInfo)
+        w, h, m3u8 = convert_to_encrypted_hls(vf_path, hlsDir, keyInfo)
 
         # 将HLS视频流地址保存入数据库
+        vid_wh = {"w":w, "h":h}
+        exist_file.wh = vid_wh
         exist_file.hls_addr = m3u8
         exist_file.save()
 
@@ -520,7 +540,7 @@ def random_all(request):
     try:
         file_objs = FileInfo.objects.filter(status="enable").order_by('-created_time')
         # 提取所需字段，比如文件数据块地址
-        file_objs_list = [{"id": file_obj.id, "data": file_obj.data, "mime":file_obj.mime, "name":file_obj.name, "md5":file_obj.md5, "album":file_obj.album, "subject":file_obj.subject, "hlsAddr":file_obj.hls_addr, "fileSize":float(file_obj.size)} for file_obj in file_objs]
+        file_objs_list = [{"id": file_obj.id, "data": file_obj.data, "mime":file_obj.mime, "wh":file_obj.wh, "name":file_obj.name, "md5":file_obj.md5, "album":file_obj.album, "subject":file_obj.subject, "hlsAddr":file_obj.hls_addr, "fileSize":float(file_obj.size)} for file_obj in file_objs]
         file_objs_json = json.dumps(file_objs_list)  # 将列表转换为JSON格式
     except Exception as e:
         logger.error(f"获取文件列表时出错: {str(e)}")
@@ -549,7 +569,7 @@ def random_filter(request):
         file_objs = FileInfo.objects.filter(**filters).order_by('-created_time')
 
         # 生成响应数据
-        file_objs_list = [{"id": file_obj.id, "data": file_obj.data, "mime":file_obj.mime, "name":file_obj.name, "md5":file_obj.md5, "album":file_obj.album, "subject":file_obj.subject, "hlsAddr":file_obj.hls_addr, "fileSize":float(file_obj.size)} for file_obj in file_objs]
+        file_objs_list = [{"id": file_obj.id, "data": file_obj.data, "mime":file_obj.mime, "wh":file_obj.wh, "name":file_obj.name, "md5":file_obj.md5, "album":file_obj.album, "subject":file_obj.subject, "hlsAddr":file_obj.hls_addr, "fileSize":float(file_obj.size)} for file_obj in file_objs]
         file_objs_json = json.dumps(file_objs_list)  # 将列表转换为JSON格式
         
     except Exception as e:

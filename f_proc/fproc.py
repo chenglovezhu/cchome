@@ -4,9 +4,10 @@ import hashlib
 import uuid
 import subprocess
 import logging
+from PIL import Image
 from django.db import connection
 
-# 设置日志
+# 设置日志，记录系统运行错误信息
 logger = logging.getLogger("f_proc")
 
 
@@ -27,9 +28,19 @@ def get_md5(f):
     except Exception as e:
         logger.error(f"获取文件MD5时，出现错: {str(e)}")
 
+def get_image_wh(file):
+    # 打开文件对象
+    image = Image.open(file)
+    width, height = image.size
+    return width, height
+
 def reset_auto_increment():
-    with connection.cursor() as cursor:
-        cursor.execute("ALTER TABLE file_info AUTO_INCREMENT = 1;")
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("ALTER TABLE file_info AUTO_INCREMENT = 1;")
+        connection.commit()  # 提交事务
+    except Exception as e:
+        logger.error(f"重置数据ID出错，请检查，错误信息: {e}")
         
 def replace_in_list(data, old_value, new_value):
     return [item.replace(old_value, new_value) if isinstance(item, str) else item for item in data]
@@ -37,6 +48,7 @@ def replace_in_list(data, old_value, new_value):
 def get_codec_info(input_video):
     # 检查输入视频文件是否存在
     if not os.path.isfile(input_video):
+        logger.error(f"输入视频文件未找到: {input_video}")
         raise FileNotFoundError(f"输入视频文件未找到: {input_video}")
     
     # 使用 FFmpeg 获取视频和音频的编解码信息
@@ -62,6 +74,7 @@ def get_codec_info(input_video):
     audio_codec = None
     bit_rate = None
     r_frame_rate = None
+    w, h = None, None
 
     # 提取编解码信息
     for stream in codec_info.get('streams', []):
@@ -69,10 +82,20 @@ def get_codec_info(input_video):
             video_codec = stream.get('codec_name')
             bit_rate = stream.get('bit_rate')
             r_frame_rate = stream.get('r_frame_rate')
+            w, h = stream.get('width'), stream.get('height')
         elif stream.get('codec_type') == 'audio':
             audio_codec = stream.get('codec_name')
+
+    # 处理帧率（如果存在的话，将分数格式的帧率转为浮点数）
+    if r_frame_rate:
+        try:
+            num, denom = map(int, r_frame_rate.split('/'))
+            r_frame_rate = num / denom
+        except ValueError:
+            logger.error(f"无法解析帧率: {r_frame_rate}")
+            r_frame_rate = None
     
-    return video_codec, audio_codec, bit_rate, r_frame_rate
+    return video_codec, audio_codec, bit_rate, r_frame_rate, w, h
 
 def generate_encryption_key(save_dir):
     # 检查输出目录是否存在
@@ -108,7 +131,7 @@ def convert_to_encrypted_hls(input_video, output_dir, key_info):
         raise FileNotFoundError(f"输出目录未找到: {output_dir}")
 
     # 获取视频和音频的编码信息
-    video_codec, audio_codec, bit_rate, r_frame_rate = get_codec_info(input_video)
+    video_codec, audio_codec, bit_rate, r_frame_rate, w, h = get_codec_info(input_video)
     
     # 构建 FFmpeg 命令
     ffmpeg_command = ['ffmpeg', '-i', input_video]
@@ -140,10 +163,11 @@ def convert_to_encrypted_hls(input_video, output_dir, key_info):
     # 运行 FFmpeg 命令
     try:
         # 使用 subprocess.run 运行 FFmpeg 命令，并捕获错误输出
-        result = subprocess.run(ffmpeg_command, check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True, timeout=3600)
-        return os.path.join(output_dir, 'playlist.m3u8')
+        subprocess.run(ffmpeg_command, check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True, timeout=3600)
+        return w, h, os.path.join(output_dir, 'playlist.m3u8')
     except subprocess.CalledProcessError as e:
         logger.error(f"FFmpeg 错误: {e.stderr}")
         raise RuntimeError("FFmpeg 处理失败")
     except subprocess.TimeoutExpired:
+        logger.error("FFmpeg 处理超时")
         raise TimeoutError("FFmpeg 处理超时")

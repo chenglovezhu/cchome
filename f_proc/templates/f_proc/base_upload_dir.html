@@ -153,7 +153,8 @@
       updateUploadStatus(fileItem, "上传成功", "text-success");
       setProgress(fileItem, "上传成功");
     } else if (response.exist.length > 0 && response.exist.some(f => f.name === fileName)) {
-      updateUploadStatus(fileItem, "已存在", "text-warning");
+      const file = response.exist.find((f) => f.name === fileName);
+      updateUploadStatus(fileItem, `${file.md5}已存在`, "text-warning");
       setProgress(fileItem, "文件存在");
     } else if (response.failed.length > 0 && response.failed.some(f => f.name === fileName)) {
       updateUploadStatus(fileItem, "上传失败", "text-danger");

@@ -190,7 +190,17 @@ function displayFileContent(fileObj) {
   let content;
 
   if (fileObj.mime.startsWith("image/")) {
-    document.getElementById("myCard").style.maxWidth = "28%";
+    // 检查宽度和高度是否存在
+    if (fileObj.wh.w && fileObj.wh.h) {
+        if (fileObj.wh.w > fileObj.wh.h) {
+            document.getElementById("myCard").style.maxWidth = "85%";
+        } else {
+            document.getElementById("myCard").style.maxWidth = "32%";
+        }
+    } else {
+        document.getElementById("myCard").style.maxWidth = "32%";
+    }
+    // 请求数据，加载图片
     fetchChunks(data, fileObj.mime).then(blob => {
       if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
       currentObjectURL = URL.createObjectURL(blob);
@@ -200,14 +210,25 @@ function displayFileContent(fileObj) {
     }).catch(error => console.error('图片加载失败:', error));
 
   } else if (fileObj.mime.startsWith("video/") && fileObj.hlsAddr?.endsWith("m3u8")) {
-    document.getElementById("myCard").style.maxWidth = "48%";
+      // 检查宽度和高度是否存在
+      if (fileObj.wh.w && fileObj.wh.h) {
+          if (fileObj.wh.w > fileObj.wh.h) {
+              document.getElementById("myCard").style.maxWidth = "85%";
+          } else {
+              document.getElementById("myCard").style.maxWidth = "32%";
+          }
+      } else {
+          document.getElementById("myCard").style.maxWidth = "32%";
+      }
+    // 定义视频元素，加载视频HLS
     content = `<video id="${fileObj.md5}" controls class="rounded w-100">HLS流播放器</video>`;
     modalBody.innerHTML = content;
     setFileInfo(fileObj);
     // 等待用户点击播放按钮
-    document.getElementById(fileObj.md5).addEventListener('onclick', () => {
-        playEncryptedHLS(fileMD5, fileObj.hlsAddr);
+    document.getElementById(fileObj.md5).addEventListener('click', () => {
+        playEncryptedHLS(fileObj.md5, fileObj.hlsAddr);
     });
+
     currentVideoElement = document.getElementById(fileObj.md5);
 
   } else if (fileObj.mime.startsWith("video/") && fileObj.fileSize < 1073741824) {
