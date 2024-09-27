@@ -1,10 +1,12 @@
 import os
+import re
 import uuid
 import json
 import shutil
 import logging
 import threading
 from datetime import datetime
+from django.db import transaction
 from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
@@ -13,7 +15,7 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 from .forms import FileInfoForm, FileAppertainForm
 from .models import FileInfo, FileRelationship, FileAppertain
-from .fproc import get_f_ext, get_md5, reset_auto_increment, generate_encryption_key, convert_to_encrypted_hls, get_image_wh
+from .fproc import get_f_ext, get_md5, reset_auto_increment, generate_encryption_key, convert_to_encrypted_hls, get_image_wh, replace_in_list
 
 # 设置日志
 logger = logging.getLogger("f_proc")
@@ -503,6 +505,10 @@ def delete_file(request, md5):
             shutil.move(file_dir, os.path.join('media', 'RecycleBin'))
             try:
                 file_obj.status = "delete"
+                file_obj.delete_time = datetime.now()
+                file_obj.data = json.loads(file_obj.data)
+                file_obj.data = replace_in_list(file_obj.data, r'^media/2024-\d{2}-\d{2}', 'media/RecycleBin')
+                file_obj.data = json.dumps(file_obj.data)
                 file_obj.save()
             except Exception as e:
                 logger.error(f"文件删除中，数据更新为：'delete' 出现错误：{e}") 
@@ -577,3 +583,137 @@ def random_filter(request):
         file_objs_json = json.dumps([])  # 返回空JSON数据
     
     return render(request, 'f_proc/random.html', {'file_objs': file_objs_json})
+
+#查看删除文件
+def recycleBin(request):
+    try:
+        # 获取所有标记为“删除”的文件，并按创建时间倒序排列
+        files = FileInfo.objects.filter(status__icontains="delete").order_by('-delete_time')
+
+        # 分页，每页显示20个文件
+        paginator = Paginator(files, 20)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+
+        # 获取所有文件关联信息
+        tags = FileAppertain.objects.all()
+
+        return render(request, 'f_proc/filter.html', {'page_obj': page_obj, 'tags': tags})
+    except Exception as e:
+        # 记录异常日志
+        logger.error(f"文件搜索失败: {str(e)}, 请求参数: {request.GET}")
+        return render(request, 'f_proc/filter.html', {'page_obj': [], 'tags': []})
+    
+def save_hls_data(request):
+    if request.method == 'POST':
+        # 提取表单数据并进行基础校验
+        category_id = request.POST.get('categorySelect')
+        level = request.POST.get('levelSelect')
+        file_dir_name = request.POST.get('fileDirName')
+        file_album = request.POST.get('fileAlbum')
+        file_title = request.POST.get('fileTitle')
+        tags = request.POST.get('manyTags', '').split('/')
+
+        # 校验表单数据是否完整
+        if not all([category_id, level, file_dir_name, file_album, file_title]):
+            return JsonResponse({"error": "表单数据不完整，请检查!"}, status=400)
+
+        # 定义上传文件的结果
+        upload_result = {"successful": [], "exist": [], "failed": []}
+
+        # 文件目录路径
+        directory_path = os.path.join("media", file_dir_name)
+        json_files = []
+
+        # 查找文件目录下的所有 JSON 文件
+        if os.path.exists(directory_path):
+            for root, _, files in os.walk(directory_path):
+                json_files += [os.path.join(root, file) for file in files if file.endswith(".json")]
+
+        # 遍历 JSON 文件
+        file_infos_to_save = []
+        for json_file_path in json_files:
+            try:
+                with open(json_file_path, "r", encoding="utf-8") as file:
+                    file_content = json.load(file)  # 读取并解析 JSON 文件
+
+                # 提取文件基础信息，确保键存在
+                try:
+                    file_name = os.path.basename(file_content['format']['filename'].replace("\\", "/"))
+                    file_md5 = file_content['format']['md5']
+                    file_uuid = file_content['format']['name_id']
+                    file_mime = file_content['streams'][0]['codec_type']
+                    file_type = file_content['format']['ext']
+                    file_size = file_content['format']['size']
+                    file_wh = {
+                        "w": file_content['streams'][0].get('width', 0),  # 提供默认值
+                        "h": file_content['streams'][0].get('height', 0)
+                    }
+                    file_hls = json_file_path.replace("json", "m3u8")
+                    file_source = os.path.dirname(json_file_path)
+                except KeyError as e:
+                    logger.error(f"JSON 文件 {json_file_path} 中缺少必要字段: {e}")
+                    upload_result['failed'].append({'file': json_file_path, 'error': f"缺少字段: {str(e)}"})
+                    continue  # 跳过当前文件
+
+                # 判断文件数据是否存在
+                if FileInfo.objects.filter(md5=file_md5).exists():
+                    upload_result['exist'].append({'name': file_name, 'md5': file_md5})
+                    logger.error(f"文件：\"{file_name}\"已存在，MD5: {file_md5}")
+                    continue
+
+                # 创建 FileInfo 实例
+                file_info = FileInfo(
+                    name=file_name,
+                    mime=f"{file_mime}/{file_type}",
+                    wh=file_wh,
+                    size=file_size,
+                    type=f".{file_type}",
+                    album=file_album,
+                    subject=file_title,
+                    level=level,
+                    md5=file_md5,
+                    data=json.dumps(file_hls),
+                    hls_addr=file_hls,
+                    source_addr=file_source,
+                    status="enable"
+                )
+
+                file_infos_to_save.append(file_info)
+
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.error(f"解析 JSON 文件 \"{json_file_path}\" 时出错: {e}")
+                upload_result['failed'].append({'file': json_file_path, 'error': str(e)})
+
+        # 批量保存数据到数据库
+        if file_infos_to_save:
+            try:
+                reset_auto_increment()
+                with transaction.atomic():  # 开启事务
+                    FileInfo.objects.bulk_create(file_infos_to_save)
+
+                    # 重新从数据库获取 FileInfo 实例（已分配 ID）
+                    saved_file_infos = FileInfo.objects.filter(md5__in=[info.md5 for info in file_infos_to_save])
+
+                    upload_result['successful'] = [{'name': info.name, 'md5': info.md5} for info in saved_file_infos]
+                    
+                    # 创建文件关系
+                    for file_info in saved_file_infos:
+                        # 关联标签
+                        for tag in tags:
+                            tag = tag.strip()
+                            if tag:
+                                create_file_relationship(file_info, appertain_name=tag)
+
+                        # 关联分类
+                        create_file_relationship(file_info, appertain_id=category_id)
+                
+            except Exception as e:
+                logger.error(f"批量保存文件信息时出错: {e}")
+                upload_result['failed'].extend([{'name': info.name, 'error': str(e)} for info in file_infos_to_save])
+            
+        return JsonResponse(upload_result)
+
+    # 如果为访问上传页面，则将分类数据传给页面
+    categories = FileAppertain.objects.filter(flag="C")
+    return render(request, 'f_proc/upload_hls.html', {'categories': categories})

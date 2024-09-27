@@ -1,0 +1,155 @@
+<div class="w-75 mx-auto">
+  <div class="d-flex flex-column align-items-center">
+    <div class="row w-100">
+      <div class="col">
+        <label class="m-1 pull-left" for="categorySelect">文件分类</label>
+        <select
+          id="categorySelect"
+          class="form-select"
+          aria-label="选择文件分类"
+          name="categorySelect"
+        >
+          <option selected>选择分类......</option>
+          {% for category in categories %}
+          <option value="{{ category.id }}">{{ category.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col">
+        <label class="m-1 pull-left" for="levelSelect">文件级别</label>
+        <select
+          id="levelSelect"
+          class="form-select"
+          aria-label="选择文件级别"
+          name="levelSelect"
+        >
+          <option selected>选择文件等级</option>
+          <option value="SFW">SFW</option>
+          <option value="Sketchy">Sketchy</option>
+          <option value="NSFW">NSFW</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row w-100 mt-4">
+      <div class="col">
+        <label class="m-1 pull-left" for="fileDirName">上传HLS根目录</label>
+        <input
+          type="text"
+          class="form-control rounded-3"
+          id="fileDirName"
+          placeholder="输入Media文件下，所属文件目录名"
+        />
+      </div>
+    </div>
+
+    <div class="row w-100 mt-4">
+      <div class="col">
+        <label class="m-1 pull-left" for="fileAlbum">文件领域</label>
+        <input
+          type="text"
+          class="form-control rounded-3"
+          id="fileAlbum"
+          placeholder="输入Media文件下，所属文件目录名"
+        />
+      </div>
+    </div>
+
+     <div class="row w-100 mt-4">
+      <div class="col">
+        <label class="m-1 pull-left" for="fileTitle">文件标题</label>
+        <input
+          type="text"
+          class="form-control rounded-3"
+          id="fileTitle"
+          placeholder="输入文件标题"
+        />
+      </div>
+    </div>
+
+    <div class="row w-100 mt-4">
+      <div class="col">
+        <label class="m-1 pull-left" for="manyTags">文件标签</label>
+        <input
+          type="text"
+          class="form-control rounded-3"
+          id="manyTags"
+          placeholder="输入标签（以逗号分隔）"
+        />
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <button class="btn btn-primary me-3 pull-right" id="uploadButton">
+      Go
+    </button>
+  </div>
+
+  <div id="fileList" style="margin-top: 20px"></div>
+</div>
+
+<script>
+  // 获取 CSRF 令牌
+  const csrfMetaTag = document.querySelector('meta[name="csrf-token"]');
+  const csrfToken = csrfMetaTag ? csrfMetaTag.getAttribute("content") : null;
+
+  if (!csrfToken) {
+    console.error("CSRF meta tag not found!");
+  }
+
+  document
+    .getElementById("uploadButton")
+    .addEventListener("click", function () {
+      // 获取表单数据
+      const categorySelect = document.getElementById("categorySelect").value;
+      const levelSelect = document.getElementById("levelSelect").value;
+      const fileDirName = document.getElementById("fileDirName").value;
+      const fileAlbum = document.getElementById("fileAlbum").value;
+      const fileTitle = document.getElementById("fileTitle").value;
+      const manyTags = document.getElementById("manyTags").value;
+
+      // 简单验证
+      if (categorySelect === "选择分类......") {
+        alert("请选择文件分类！");
+        return;
+      }
+      if (levelSelect === "选择文件等级") {
+        alert("请选择文件级别！");
+        return;
+      }
+      if (fileDirName.trim() === "") {
+        alert("请输入文件目录名！");
+        return;
+      }
+
+      // 创建 FormData 对象
+      const formData = new FormData();
+      formData.append("categorySelect", categorySelect);
+      formData.append("levelSelect", levelSelect);
+      formData.append("fileDirName", fileDirName);
+      formData.append("fileAlbum", fileAlbum);
+      formData.append("fileTitle", fileTitle);
+      formData.append("manyTags", manyTags);
+
+      // 创建 XMLHttpRequest 对象
+      const xhr = new XMLHttpRequest();
+
+      xhr.open("POST", '{% url "save_hls_data" %}'); // 使用 data-url 传递的URL
+      xhr.setRequestHeader("X-CSRFToken", csrfToken);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          alert("数据提交成功！");
+          // 处理成功逻辑
+        } else {
+          alert("数据提交失败！");
+          // 处理失败逻辑
+        }
+      };
+      xhr.onerror = function () {
+        alert("请求失败，请重试！");
+      };
+      xhr.send(formData);
+    });
+</script>

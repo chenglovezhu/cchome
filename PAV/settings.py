@@ -75,19 +75,19 @@ WSGI_APPLICATION = 'PAV.wsgi.application'
 
 DATABASES = {
     'default': {
-        # 'ENGINE': 'django.db.backends.mysql',
-        # 'NAME': os.getenv('DB_NAME', 'ccpav'),
-        # 'USER': os.getenv('DB_USER', 'root'),
-        # 'PASSWORD': os.getenv('DB_PASSWORD', 'cheng00..'),
-        # 'HOST': os.getenv('DB_HOST', 'mysql_db'),  # 使用 'db' 而不是 'localhost'
-        # 'PORT': os.getenv('DB_PORT', '3306'),
-        # 非docker配置
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'ccpav',
-        'HOST': 'localhost',
-        'USER': 'root',
-        'PASSWORD': 'cheng00..',
-        'port': '3306',
+        'NAME': os.getenv('DB_NAME', 'ccpav'),
+        'USER': os.getenv('DB_USER', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'cheng00..'),
+        'HOST': os.getenv('DB_HOST', 'mysql_db'),  # 使用 'db' 而不是 'localhost'
+        'PORT': os.getenv('DB_PORT', '3306'),
+        # 非docker配置
+        # 'ENGINE': 'django.db.backends.mysql',
+        # 'NAME': 'ccpav',
+        # 'HOST': 'localhost',
+        # 'USER': 'root',
+        # 'PASSWORD': 'cheng00..',
+        # 'port': '3306',
     }
 }
 

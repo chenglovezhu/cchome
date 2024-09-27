@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import hashlib
 import uuid
@@ -42,8 +43,11 @@ def reset_auto_increment():
     except Exception as e:
         logger.error(f"重置数据ID出错，请检查，错误信息: {e}")
         
-def replace_in_list(data, old_value, new_value):
-    return [item.replace(old_value, new_value) if isinstance(item, str) else item for item in data]
+def replace_in_list(data, old_pattern, new_value):
+    return [
+        re.sub(old_pattern, new_value, item) if isinstance(item, str) else item 
+        for item in data
+    ]
 
 def get_codec_info(input_video):
     # 检查输入视频文件是否存在
