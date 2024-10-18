@@ -32,7 +32,7 @@ class FileAppertain(models.Model):
         ("C", "Catalogue"),
         ("T", "Tag"),
     ]
-    name = models.CharField(max_length=128, unique=True)
+    name = models.CharField(max_length=128)
     flag = models.CharField(max_length=1, choices=FLAG_CHOICES)
     parent = models.IntegerField(default=0)  # 默认 parent 为 0
 

@@ -15,7 +15,7 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 from .forms import FileInfoForm, FileAppertainForm
 from .models import FileInfo, FileRelationship, FileAppertain
-from .fproc import get_f_ext, get_md5, reset_auto_increment, generate_encryption_key, convert_to_encrypted_hls, get_image_wh, replace_in_list
+from .fproc import get_f_ext, get_md5, reset_auto_increment, generate_encryption_key, convert_to_encrypted_hls, get_image_wh, replace_in_list, validate_and_fix_json, reset_auto_increment_fileCT
 
 # 设置日志
 logger = logging.getLogger("f_proc")
@@ -24,20 +24,11 @@ v2hls_task_status = {}
 # 用于保护 task_status 字典的锁
 v2hls_task_status_lock = threading.Lock()
 
-# 定义404页面
+'''定义404页面'''
 def custom_404_view(request, exception):
     return render(request, 'f_proc/404.html', status=404)
 
-# 上传多文件页面
-def upload_dir(request):
-    try:
-        categories = FileAppertain.objects.filter(flag="C")
-    except Exception as e:
-        logger.error(f"获取分类时出错: {str(e)}")
-        categories = []  # 错误情况下使用空列表
-    return render(request, 'f_proc/upload_dir.html', {'categories': categories})
-
-# 上传单文件页面
+'''上传单文件页面'''
 def upload(request):
     try:
         categories = FileAppertain.objects.filter(flag="C")
@@ -46,7 +37,16 @@ def upload(request):
         categories = []  # 错误情况下使用空列表
     return render(request, 'f_proc/upload.html', {'categories': categories})
 
-# 文件清单页面
+'''上传多文件页面'''
+def upload_dir(request):
+    try:
+        categories = FileAppertain.objects.filter(flag="C")
+    except Exception as e:
+        logger.error(f"获取分类时出错: {str(e)}")
+        categories = []  # 错误情况下使用空列表
+    return render(request, 'f_proc/upload_dir.html', {'categories': categories})
+
+'''文件清单页面'''
 def file_list(request):
     try:
         file_info_list = FileInfo.objects.all().order_by('-created_time')
@@ -60,138 +60,7 @@ def file_list(request):
     
     return render(request, 'f_proc/list.html', {'page_obj': page_obj})
 
-# 建立文件与分类/标签关系
-def create_file_relationship(file_info, appertain_id=None, appertain_name=None, flag='T', parent=0):
-    if appertain_id:
-        file_appertain = FileAppertain.objects.get(id=appertain_id)
-    elif appertain_name:
-        file_appertain, created = FileAppertain.objects.get_or_create(name=appertain_name, flag=flag, parent=parent)
-    else:
-        return  # 如果没有传入有效的 ID 或名称，则不进行操作
-
-    # 创建 FileRelationship
-    FileRelationship.objects.create(file_info=file_info, file_appertain=file_appertain)
-
-# 上传文件，并将数据写入数据库
-def handle_uploaded_file(file, file_info):
-    # 定义文件分块的大小为1M
-    chunk_size = 1024 * 1024  # 1MB
-    # 定义文件分块后，每个块数据的位置被保存在该数组中
-    file_info.data = []
-    # 定义文件块的保存路径
-    baseDir = os.path.join('media', timezone.now().strftime('%Y-%m-%d'), file_info.md5)
-    
-    # 开始处理上传文件：将文件进行分块存储
-    try:
-        # 创建文件块保存目录
-        os.makedirs(baseDir, exist_ok=True)
-        # 写入文件块数据
-        with file.open('rb') as f:
-            while True:
-                chunk_data = f.read(chunk_size)
-                if not chunk_data:
-                    break
-                chunk_uuid = str(uuid.uuid4())
-                chunk_path = os.path.join(baseDir, chunk_uuid)
-                with open(chunk_path, 'wb') as chunk_file:
-                    chunk_file.write(chunk_data)
-                file_info.data.append(chunk_path)
-        
-        file_info.data = json.dumps(file_info.data)
-        file_info.source_addr = baseDir
-        # 重置数据库，保证数据ID顺序自增长
-        reset_auto_increment()
-        # 将数据保存入数据库
-        file_info.save()
-        
-    except Exception as e:
-        logger.error(f"保存文件 {file.name} 时出错: {str(e)}")
-        
-        # 清理已创建的文件和目录
-        for path in json.loads(file_info.data):
-            if os.path.exists(path):
-                os.remove(path)
-        if os.path.exists(baseDir):
-            shutil.rmtree(baseDir)
-        raise
-
-# 处理上传文件
-def save_file_data(request):
-    # 如果上传文件，则保存文件
-    if request.method == 'POST':
-        files = request.FILES.getlist('file_field')
-        tags = request.POST.get('manyTags', '').split('/')
-        album = request.POST.get('album')
-        subject = request.POST.get('subject')
-        category_id = request.POST.get('categorySelect')
-        level = request.POST.get('levelSelect')
-        img_wh = {"w":None, "h":None}
-        
-        # 定义上传文件的结果
-        upload_result = {"successful":[], 
-                         "exist":[], 
-                         "failed":[]
-                         }
-        
-        for file in files:
-            # 获取文件基础信息
-            file_md5 = get_md5(file)
-            exist_file = FileInfo.objects.filter(md5=file_md5).first()
-            # 判断文件是否已经存在
-            if exist_file:
-                upload_result['exist'].append({'name': file.name, 'md5': file_md5})
-                logger.error(f"文件：\"{file.name}\"已存在，请检查！")
-                continue
-            # 如果上传文件为图片，则获取其宽度与高度
-            try:
-                if file.content_type.startswith('image'):
-                    img_wh['w'], img_wh['h'] = get_image_wh(file)
-            except (IOError, ValueError) as e:
-                # 捕获与文件操作相关的异常
-                logger.error(f"文件：\"{file.name}：{file_md5}\"读取错误或图片格式不正确: {e}")
-            except Exception as e:
-                # 捕获其他未知错误
-                logger.error(f"读取文件：\"{file.name}：{file_md5}\"时，遇到错误: {e}")
-            
-            # 文件基础信息
-            file_info = FileInfo(
-                name=file.name,
-                mime=file.content_type,
-                wh=img_wh,
-                size=file.size,
-                type=get_f_ext(file)['file_extension'],
-                album=album,
-                subject=subject,
-                level=level,
-                md5=file_md5,
-            )
-            
-            # 开始上传文件
-            try:
-                # 开始处理上传文件
-                handle_uploaded_file(file, file_info)
-
-                for tag in tags:
-                    tag = tag.strip()
-                    if tag:
-                        create_file_relationship(file_info, appertain_name=tag)
-
-                if category_id:
-                    create_file_relationship(file_info, appertain_id=category_id)
-
-                upload_result['successful'].append({'name': file.name, 'md5': file_md5})
-            except Exception as e:
-                upload_result['failed'].append({'name': file.name, 'md5': file_md5})
-                logger.error(f"上传文件 {file.name} 时出错: {str(e)}")
-                if file_info.id:
-                    file_info.delete()
-        
-        return JsonResponse(upload_result)
-    # 如果为访问上传页面，则将分类数据传给页面
-    categories = FileAppertain.objects.filter(flag="C")
-    return render(request, 'f_proc/upload.html', {'categories': categories})
-
-# 管理分类标签页面
+'''管理分类标签页面'''
 def manage_appertain(request, pk=None):
     appertain = get_object_or_404(FileAppertain, pk=pk) if pk else None
     response_data = {}
@@ -239,14 +108,167 @@ def manage_appertain(request, pk=None):
     else:
         form = FileAppertainForm(instance=appertain)
 
-    appertains = FileAppertain.objects.filter(flag="C")
+    appertains = FileAppertain.objects.all()
+    
     return render(request, 'f_proc/ct.html', {
         'form': form,
         'appertains': appertains,
         'current_appertain': appertain
     })
 
-# 获取文件数据，用以展示与下载
+'''
+建立文件与分类/标签关系
+file_info: 文件对象
+appertain_id: 分类ID
+appertain_name: 分类名称
+flag: 分类/标签符号, 表示C表示分类, T表示标签
+parent: 父分类ID
+'''
+def create_file_relationship(file_info, appertain_id=None, flag_name=None, flag='T', parent=0):
+    if appertain_id:
+        file_appertain = FileAppertain.objects.get(id=appertain_id)
+    elif flag_name:
+        file_appertain, created = FileAppertain.objects.get_or_create(name=flag_name, flag=flag, parent=parent)
+    else:
+        return  # 如果没有传入有效的 ID 或名称，则不进行操作
+
+    # 创建 FileRelationship
+    FileRelationship.objects.create(file_info=file_info, file_appertain=file_appertain)
+
+'''
+上传文件，并将数据分块保存，将文件信息写入数据库
+file: 方法处理需要传入的文件
+file_info: 文件信息字典
+'''
+def handle_uploaded_file(file, file_info):
+    # 定义文件分块的大小为1M
+    chunk_size = 1024 * 1024  # 1MB
+    # 定义文件分块后，每个块数据的位置被保存在该数组中
+    file_info.data = []
+    # 定义文件块的保存路径
+    baseDir = os.path.join('media', timezone.now().strftime('%Y-%m-%d'), file_info.md5)
+    
+    # 开始处理上传文件：将文件进行分块存储
+    try:
+        # 创建文件块保存目录，如果文件夹不存在则创建
+        os.makedirs(baseDir, exist_ok=True)
+        # 写入文件块数据
+        with file.open('rb') as f:
+            while True:
+                chunk_data = f.read(chunk_size)
+                if not chunk_data:
+                    break
+                chunk_uuid = str(uuid.uuid4())  #创建文件块名称，名称随机生成
+                chunk_path = os.path.join(baseDir, chunk_uuid)  #生成块文件数据路径
+                with open(chunk_path, 'wb') as chunk_file:  #写入块文件数据
+                    chunk_file.write(chunk_data)
+                file_info.data.append(chunk_path)   #将块文件数据路径写入文件数据字典
+        
+        # 将块文件数据路径转为json字典
+        file_info.data = json.dumps(file_info.data)
+        # 将块文件数据根目录存入文件数据字典
+        file_info.source_addr = baseDir
+        # 重置数据库，保证数据ID顺序自增长
+        reset_auto_increment()
+        # 将数据保存入数据库
+        file_info.save()
+        
+    except Exception as e:
+        logger.error(f"保存文件 {file.name} 时出错: {str(e)}")
+        
+        # 清理已创建的文件和目录
+        for path in json.loads(file_info.data):
+            if os.path.exists(path):
+                os.remove(path)
+        if os.path.exists(baseDir):
+            shutil.rmtree(baseDir)
+        raise
+
+'''处理上传文件'''
+def save_file_data(request):
+    # 如果上传文件，则保存文件
+    if request.method == 'POST':
+        files = request.FILES.getlist('file_field')
+        tags = request.POST.get('manyTags', '').split('/')
+        album = request.POST.get('album')
+        subject = request.POST.get('subject')
+        category_id = request.POST.get('categorySelect')
+        level = request.POST.get('levelSelect')
+        img_wh = {"w":None, "h":None}   #上传文件若为图片，则会生成其宽与高
+        
+        # 定义上传文件的结果
+        upload_result = {"successful":[], 
+                         "exist":[], 
+                         "failed":[]
+                         }
+        
+        for file in files:
+            # 获取文件基础信息
+            try:
+                file_md5 = get_md5(file)
+            except:
+                logger.error(f"文件：\"{file.name}\" MD5值获取失败，请检查......")
+                continue
+            
+            # 判断文件是否已经存在
+            exist_file = FileInfo.objects.filter(md5=file_md5).first()
+            # 如果文件存在，则将文件信息存入上传文件字典中，并跳过该文件的存储
+            if exist_file:
+                upload_result['exist'].append({'name': file.name, 'md5': file_md5})
+                logger.error(f"文件：\"{file.name}\" 已存在，请检查！")
+                continue
+            
+            # 如果上传文件不存，则继续文件处理程序
+            # 如果上传文件为图片，则获取其宽度与高度
+            try:
+                if file.content_type.startswith('image'):
+                    img_wh['w'], img_wh['h'] = get_image_wh(file)
+            except (IOError, ValueError) as e:
+                # 捕获与文件操作相关的异常
+                logger.error(f"图片文件：\"{file.name}：{file_md5}\" 读取错误或图片格式不正确: {e}")
+            except Exception as e:
+                # 捕获其他未知错误
+                logger.error(f"读取图片文件：\"{file.name}：{file_md5}\" 时，遇到错误: {e}")
+            
+            # 配置文件对象基础信息，用于存入数据库
+            file_info = FileInfo(
+                name=file.name,
+                mime=file.content_type,
+                wh=img_wh,
+                size=file.size,
+                type=get_f_ext(file)['file_extension'],
+                album=album,
+                subject=subject,
+                level=level,
+                md5=file_md5,
+            )
+            
+            # 开始上传文件
+            try:
+                # 开始处理上传文件
+                handle_uploaded_file(file, file_info)
+
+                for tag in tags:
+                    tag = tag.strip()
+                    if tag:
+                        reset_auto_increment_fileCT()
+                        create_file_relationship(file_info, appertain_name=tag)
+
+                if category_id:
+                    create_file_relationship(file_info, appertain_id=category_id)
+
+                upload_result['successful'].append({'name': file.name, 'md5': file_md5})
+            except Exception as e:
+                upload_result['failed'].append({'name': file.name, 'md5': file_md5})
+                logger.error(f"上传文件 ：\"{file.name}\" 时出错: {str(e)}")
+        
+        return JsonResponse(upload_result)
+    
+    # 如果为访问上传页面，则将分类数据传给页面
+    categories = FileAppertain.objects.filter(flag="C")
+    return render(request, 'f_proc/upload.html', {'categories': categories})
+
+'''获取文件数据，用以展示与下载'''
 def get_file_data(request, md5):
     try:
         file_obj = FileInfo.objects.get(md5=md5)
@@ -258,36 +280,44 @@ def get_file_data(request, md5):
         logger.error(f"获取文件数据时出错: {str(e)}")
         return JsonResponse({'error': '服务器错误'}, status=500)
 
-# 查询文件
+'''
+查询文件
+'''
 def file_search(request):
     try:
+        # 获取前端查询内容
         data = request.GET.get('searchFiles', '')
-        
+        # 获取数据库中的所有数据
         files = FileInfo.objects.all().order_by('-created_time')
         
+        # 如果查询内容存在数据库字段中，则筛选
         if data:
             files = files.filter(Q(name__icontains=data) | Q(md5__icontains=data) | Q(album__icontains=data) | Q(subject=data))
 
+        # 分页展示查询数据
         paginator = Paginator(files, 20)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
-        tags = FileAppertain.objects.all()
-        return render(request, 'f_proc/filter.html', {'page_obj': page_obj, 'tags': tags})
+        
+        return render(request, 'f_proc/filter.html', {'page_obj': page_obj})
     except Exception as e:
         logger.error(f"文件搜索失败: {str(e)}")
-        return render(request, 'f_proc/filter.html', {'page_obj': [], 'tags': []})
+        return render(request, 'f_proc/filter.html', {'page_obj': []})
 
 # 更新视频转换状态
 def update_v2hls_task_status(md5, status, result=''):
     with v2hls_task_status_lock:
         v2hls_task_status[md5] = {'status': status, 'result': result}
 
+# 视频文件转换为视频流初始状态
 def v2hls_task_status_view(request, md5):
     with v2hls_task_status_lock:
         status = v2hls_task_status.get(md5, {'status': '未开始', 'result': ''})
     return JsonResponse(status)
 
-# 将传频文件转为HLS流
+'''
+将传频文件转为HLS流
+'''
 def vFile_to_HLS_task(md5):
     try:
         # 查询视频文件是否存在
@@ -296,9 +326,8 @@ def vFile_to_HLS_task(md5):
             logger.error(f"未找到MD5为 {md5} 的视频文件。")
             return
         
-        # 提取日期部分
-        date_str = exist_file.created_time.date()
-        if os.path.exists(f"media/HLS/{date_str}/{md5}"):
+        # 检查视频流是否已存在
+        if exist_file.hls_addr and os.path.exists(exist_file.hls_addr):
             # 更新任务状态为处理中
             update_v2hls_task_status(md5, '处理中', 'HLS视频流已存在，请检查！')
             logger.error(f"{md5}视频文件的视频流已存在")
@@ -333,6 +362,7 @@ def vFile_to_HLS_task(md5):
         vid_wh = {"w":w, "h":h}
         exist_file.wh = vid_wh
         exist_file.hls_addr = m3u8
+        exist_file.mime = f"video/{exist_file.type.lstrip('.')}"
         exist_file.save()
 
         # 移除合成的视频文件，减小磁盘消耗
@@ -603,7 +633,10 @@ def recycleBin(request):
         # 记录异常日志
         logger.error(f"文件搜索失败: {str(e)}, 请求参数: {request.GET}")
         return render(request, 'f_proc/filter.html', {'page_obj': [], 'tags': []})
-    
+
+'''
+直接将视频流保存入数据库
+'''
 def save_hls_data(request):
     if request.method == 'POST':
         # 提取表单数据并进行基础校验
@@ -633,6 +666,13 @@ def save_hls_data(request):
         # 遍历 JSON 文件
         file_infos_to_save = []
         for json_file_path in json_files:
+            # 调用 validate_and_fix_json 并检查返回结果
+            validation_result = validate_and_fix_json(json_file_path)
+            if validation_result == "Fail":
+                logger.error(f"跳过文件 {json_file_path}，因为校验未通过: {validation_result}")
+                upload_result['failed'].append({'file': json_file_path, 'error': "校验未通过"})
+                continue  # 跳过当前文件
+
             try:
                 with open(json_file_path, "r", encoding="utf-8") as file:
                     file_content = json.load(file)  # 读取并解析 JSON 文件
@@ -659,7 +699,7 @@ def save_hls_data(request):
                 # 判断文件数据是否存在
                 if FileInfo.objects.filter(md5=file_md5).exists():
                     upload_result['exist'].append({'name': file_name, 'md5': file_md5})
-                    logger.error(f"文件：\"{file_name}\"已存在，MD5: {file_md5}")
+                    logger.error(f"文件：\"{file_name}\" 已存在，MD5: \"{file_md5}\"")
                     continue
 
                 # 创建 FileInfo 实例
@@ -688,13 +728,14 @@ def save_hls_data(request):
         # 批量保存数据到数据库
         if file_infos_to_save:
             try:
+                # 重置文件信息数据库自增长
                 reset_auto_increment()
                 with transaction.atomic():  # 开启事务
-                    FileInfo.objects.bulk_create(file_infos_to_save)
+                    FileInfo.objects.bulk_create(file_infos_to_save)    #批量保存文件数据
 
                     # 重新从数据库获取 FileInfo 实例（已分配 ID）
                     saved_file_infos = FileInfo.objects.filter(md5__in=[info.md5 for info in file_infos_to_save])
-
+                    # 将已成功保存数据保存到上传结果
                     upload_result['successful'] = [{'name': info.name, 'md5': info.md5} for info in saved_file_infos]
                     
                     # 创建文件关系
@@ -703,7 +744,8 @@ def save_hls_data(request):
                         for tag in tags:
                             tag = tag.strip()
                             if tag:
-                                create_file_relationship(file_info, appertain_name=tag)
+                                reset_auto_increment_fileCT()   #重置数据库自增长
+                                create_file_relationship(file_info, appertain_name=tag)     #将文件信息与标签联系
 
                         # 关联分类
                         create_file_relationship(file_info, appertain_id=category_id)

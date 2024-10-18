@@ -5,3 +5,4 @@ f_proc/__pycache__/
 f_proc/migrations/
 show/__pycache__/
 user/__pycache__/
+venv/

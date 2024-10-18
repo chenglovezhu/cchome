@@ -42,7 +42,15 @@ def reset_auto_increment():
         connection.commit()  # 提交事务
     except Exception as e:
         logger.error(f"重置数据ID出错，请检查，错误信息: {e}")
-        
+
+def reset_auto_increment_fileCT():
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("ALTER TABLE file_appertain AUTO_INCREMENT = 1;")
+        connection.commit()  # 提交事务
+    except Exception as e:
+        logger.error(f"重置数据分类/标签ID出错，请检查，错误信息: {e}")
+    
 def replace_in_list(data, old_pattern, new_value):
     return [
         re.sub(old_pattern, new_value, item) if isinstance(item, str) else item 
@@ -175,3 +183,40 @@ def convert_to_encrypted_hls(input_video, output_dir, key_info):
     except subprocess.TimeoutExpired:
         logger.error("FFmpeg 处理超时")
         raise TimeoutError("FFmpeg 处理超时")
+    
+# 将json文件中的字符串转为json格式
+def validate_and_fix_json(file_path):
+    """检查并尝试修复 JSON 文件的格式。"""
+    if not os.path.isfile(file_path):
+        logger.error(f"错误：文件 {file_path} 不存在！")
+        return "Fail"
+
+    try:
+        # 读取文件内容
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 尝试解析 JSON
+        data = json.loads(content)
+        logger.error(f"\"{file_path}\":文件内容是合法的 JSON 格式，无须进行任何转换操作！")
+        return "Done"
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"发现 \"{file_path}\" 文件中的JSON 格式错误: {e}，正在尝试修复，请稍等......")
+        
+        try:
+            # 如果格式错误，尝试处理并重新格式化为合法的 JSON
+            formatted_content = content.replace("'", '"')  # 替换单引号为双引号（常见错误）
+            data = json.loads(formatted_content)  # 尝试再次解析
+            logger.error("修复成功！重新保存为合法的 JSON 格式。")
+            
+            # 将修复后的内容保存回文件
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+            
+            logger.error("成功转换为Json格式，请检查！")
+            return "Successul"
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"无法将 \"{file_path}\" 文件转换为JSON格式：{e}")
+            return "Fail"

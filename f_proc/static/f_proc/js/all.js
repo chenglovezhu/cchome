@@ -10,8 +10,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   //页面加载完成后，如果存在previewModal弹窗，则执行相应方法
-  if (document.getElementById("previewModal")) {
-    closePreviewFile();
+  const previewModal = document.getElementById("previewModal");
+  //判断弹窗是否存在
+  if (previewModal) {
+    // 监听模态框隐藏事件以撤销 Object URL 和销毁 Hls 实例
+    previewModal.addEventListener("hidden.bs.modal", () => {
+      console.log(currentVideoElement);
+      closePreviewFile();
+    });
   }
 });
 
@@ -150,9 +156,13 @@ async function previewFile(md5, mime) {
     previewModal.show();
 
     //如果采用HLS视频流播放，则加载支持播放的hls的js方法
-    if (mime.startsWith("video/") && data.hlsAddr?.endsWith("m3u8")) {
-      playEncryptedHLS(md5, data.hlsAddr);
-      currentVideoElement = document.getElementById(md5);
+    if (mime.startsWith("video/")) {
+      if (data.hlsAddr?.endsWith("m3u8")) {
+        playEncryptedHLS(md5, data.hlsAddr);
+        currentVideoElement = document.getElementById(md5);
+      } else {
+        currentVideoElement = document.getElementById(md5);
+      }
     }
   } catch (error) {
     // console.error("文件预览错误:", error);
@@ -166,7 +176,7 @@ async function previewFile(md5, mime) {
   }
 }
 
-// 下载文件（下载完后合并）
+// 下载文件（下载完后合并）a
 async function downloadFile(md5, mime) {
   //获取弹窗元素
   const modalBody = document.querySelector("#previewModal .modal-body");
@@ -278,7 +288,7 @@ function playEncryptedHLS(elementID, hlsAddr) {
     if (hls) {
       // 如果 Hls 实例已经存在，则销毁它
       try {
-        hls.destroy();  // 不再使用 .then()，因为 destroy() 是同步方法
+        hls.destroy(); // 不再使用 .then()，因为 destroy() 是同步方法
       } catch (error) {
         console.error("销毁 Hls 实例时出错:", error);
       }
@@ -366,7 +376,7 @@ async function editFileInfo(md5, name, album, subject) {
   document.getElementById("name").value = name;
   document.getElementById("album").value = album;
   document.getElementById("subject").value = subject;
-  
+
   // 显示更新文件信息的模态窗口
   const modal = new bootstrap.Modal(document.getElementById("editFileInfo"));
   modal.show();
