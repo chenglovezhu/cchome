@@ -514,11 +514,15 @@ def set_file_status_enable(request, md5):
         }
         return JsonResponse(response_data, status=500)
 
-# 定义删除文件原数据页面
+'''
+定义删除文件原数据页面
+'''
 def delete(request):
     return render(request, 'f_proc/delete.html')
 
-# 删除文件原数据
+"""
+删除文件原数据
+"""
 def delete_file(request, md5):
     try:
         # Retrieve the file object or return a 404 if not found
@@ -614,7 +618,7 @@ def random_filter(request):
     
     return render(request, 'f_proc/random.html', {'file_objs': file_objs_json})
 
-#查看删除文件
+"""查看删除文件"""
 def recycleBin(request):
     try:
         # 获取所有标记为“删除”的文件，并按创建时间倒序排列
