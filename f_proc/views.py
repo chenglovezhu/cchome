@@ -19,17 +19,18 @@ from .fproc import get_f_ext, get_md5, reset_auto_increment, generate_encryption
 
 # 设置日志
 logger = logging.getLogger("f_proc")
-# 用于存储任务状态的字典
+
+# 用于存储任务状态的字典, 主要用于视频流任务
 v2hls_task_status = {}
-# 用于保护 task_status 字典的锁
+# 用于保护 task_status 字典的锁, 主要用于视频流任务
 v2hls_task_status_lock = threading.Lock()
 
-'''定义404页面'''
+# 定义404页面
 def custom_404_view(request, exception):
     return render(request, 'f_proc/404.html', status=404)
 
-'''上传单文件页面'''
-def upload(request):
+# 上传单文件页面
+def index_upload(request):
     try:
         categories = FileAppertain.objects.filter(flag="C")
     except Exception as e:
@@ -37,7 +38,7 @@ def upload(request):
         categories = []  # 错误情况下使用空列表
     return render(request, 'f_proc/upload.html', {'categories': categories})
 
-'''上传多文件页面'''
+# 上传多文件页面，上传文件夹, 一级文件夹为Album, 二级文件夹为Subject
 def upload_dir(request):
     try:
         categories = FileAppertain.objects.filter(flag="C")
@@ -46,7 +47,7 @@ def upload_dir(request):
         categories = []  # 错误情况下使用空列表
     return render(request, 'f_proc/upload_dir.html', {'categories': categories})
 
-'''文件清单页面'''
+# 文件清单页面
 def file_list(request):
     try:
         file_info_list = FileInfo.objects.all().order_by('-created_time')
@@ -60,7 +61,7 @@ def file_list(request):
     
     return render(request, 'f_proc/list.html', {'page_obj': page_obj})
 
-'''管理分类标签页面'''
+# 管理分类标签页面
 def manage_appertain(request, pk=None):
     appertain = get_object_or_404(FileAppertain, pk=pk) if pk else None
     response_data = {}
@@ -120,7 +121,7 @@ def manage_appertain(request, pk=None):
 建立文件与分类/标签关系
 file_info: 文件对象
 appertain_id: 分类ID
-appertain_name: 分类名称
+flag_name: 分类名称
 flag: 分类/标签符号, 表示C表示分类, T表示标签
 parent: 父分类ID
 '''
@@ -184,7 +185,16 @@ def handle_uploaded_file(file, file_info):
             shutil.rmtree(baseDir)
         raise
 
-'''处理上传文件'''
+'''
+处理上传文件：
+需传入数据：
+file_field:上传的文件
+manyTags:文件所属标签
+album:文件所属目录
+subject:文件所属领域
+categorySelect:文件分类
+levelSelect:文件等级
+'''
 def save_file_data(request):
     # 如果上传文件，则保存文件
     if request.method == 'POST':
@@ -252,7 +262,7 @@ def save_file_data(request):
                     tag = tag.strip()
                     if tag:
                         reset_auto_increment_fileCT()
-                        create_file_relationship(file_info, appertain_name=tag)
+                        create_file_relationship(file_info, flag_name=tag)
 
                 if category_id:
                     create_file_relationship(file_info, appertain_id=category_id)
@@ -268,21 +278,29 @@ def save_file_data(request):
     categories = FileAppertain.objects.filter(flag="C")
     return render(request, 'f_proc/upload.html', {'categories': categories})
 
-'''获取文件数据，用以展示与下载'''
+# 获取文件数据，用以展示与下载
+"""
+查询成功, 则返回：
+'fileName':file_obj.name,
+'fileType':file_obj.type, 
+'fileWH':file_obj.wh, 
+'fileSize':file_obj.size, 
+'fileDatas': file_obj.data, 
+'hlsAddr':file_obj.hls_addr}
+"""
 def get_file_data(request, md5):
     try:
-        file_obj = FileInfo.objects.get(md5=md5)
+        file_obj = FileInfo.objects.filter(md5=md5).first()
+        
         file_obj.data = json.loads(file_obj.data)
-        return JsonResponse({'fileName':file_obj.name, 'fileDatas': file_obj.data, 'fileType':file_obj.type, 'wh':file_obj.wh, 'fileSize':file_obj.size, 'hlsAddr':file_obj.hls_addr})
+        return JsonResponse({'fileName':file_obj.name, 'fileType':file_obj.type, 'fileWH':file_obj.wh, 'fileSize':file_obj.size, 'fileDatas': file_obj.data, 'hlsAddr':file_obj.hls_addr})
     except FileInfo.DoesNotExist:
-        return JsonResponse({'error': '文件未找到'}, status=404)
+        return JsonResponse({'error': '文件未收录在数据库中，请检查......'}, status=404)
     except Exception as e:
         logger.error(f"获取文件数据时出错: {str(e)}")
-        return JsonResponse({'error': '服务器错误'}, status=500)
+        return JsonResponse({'error': '获取文件数据时出错，请检查......'}, status=500)
 
-'''
-查询文件
-'''
+# 查询文件
 def file_search(request):
     try:
         # 获取前端查询内容
@@ -304,6 +322,13 @@ def file_search(request):
         logger.error(f"文件搜索失败: {str(e)}")
         return render(request, 'f_proc/filter.html', {'page_obj': []})
 
+'''
+将传频文件转为HLS流
+'''
+# 定义转换视频流页面
+def v2hls(request):
+    return render(request, 'f_proc/v2hls.html')
+
 # 更新视频转换状态
 def update_v2hls_task_status(md5, status, result=''):
     with v2hls_task_status_lock:
@@ -315,21 +340,22 @@ def v2hls_task_status_view(request, md5):
         status = v2hls_task_status.get(md5, {'status': '未开始', 'result': ''})
     return JsonResponse(status)
 
-'''
-将传频文件转为HLS流
-'''
+# 开始处理视频文件，将视频文件转为视频流
 def vFile_to_HLS_task(md5):
     try:
         # 查询视频文件是否存在
         exist_file = FileInfo.objects.filter(md5=md5).first()
+        
+        # 检查视频文件是否存在
         if not exist_file:
+            update_v2hls_task_status(md5, '警告', '视频文件不存在，请检查！')
             logger.error(f"未找到MD5为 {md5} 的视频文件。")
             return
         
         # 检查视频流是否已存在
         if exist_file.hls_addr and os.path.exists(exist_file.hls_addr):
             # 更新任务状态为处理中
-            update_v2hls_task_status(md5, '处理中', 'HLS视频流已存在，请检查！')
+            update_v2hls_task_status(md5, '未处理', 'HLS视频流已存在，请检查！')
             logger.error(f"{md5}视频文件的视频流已存在")
             return
         
@@ -392,10 +418,6 @@ def vFile_to_HLS(request, md5):
 
     # 立即返回响应，不用等待线程执行完毕
     return JsonResponse({"result": "视频流转换任务已启动，请稍等......"})
-
-# 定义转换视频流页面
-def v2hls(request):
-    return render(request, 'f_proc/v2hls.html')
 
 def check_and_delete_file_chunks(request, md5):
     try:
@@ -536,6 +558,9 @@ def delete_file(request, md5):
         
         # Ensure the directory exists before attempting to remove it
         if os.path.exists(file_dir):
+            # 如果回收站不存在，则创建
+            os.makedirs(os.path.join('media', 'RecycleBin'), exist_ok=True)
+            # 将文件移到回收站
             shutil.move(file_dir, os.path.join('media', 'RecycleBin'))
             try:
                 file_obj.status = "delete"
@@ -618,7 +643,7 @@ def random_filter(request):
     
     return render(request, 'f_proc/random.html', {'file_objs': file_objs_json})
 
-"""查看删除文件"""
+# 查看删除文件
 def recycleBin(request):
     try:
         # 获取所有标记为“删除”的文件，并按创建时间倒序排列
@@ -629,14 +654,11 @@ def recycleBin(request):
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
-        # 获取所有文件关联信息
-        tags = FileAppertain.objects.all()
-
-        return render(request, 'f_proc/filter.html', {'page_obj': page_obj, 'tags': tags})
+        return render(request, 'f_proc/filter.html', {'page_obj': page_obj})
     except Exception as e:
         # 记录异常日志
         logger.error(f"文件搜索失败: {str(e)}, 请求参数: {request.GET}")
-        return render(request, 'f_proc/filter.html', {'page_obj': [], 'tags': []})
+        return render(request, 'f_proc/filter.html', {'page_obj': []})
 
 '''
 直接将视频流保存入数据库
@@ -702,6 +724,7 @@ def save_hls_data(request):
 
                 # 判断文件数据是否存在
                 if FileInfo.objects.filter(md5=file_md5).exists():
+                    shutil.move(os.path.dirname(json_file_path), os.path.join('media', 'ExistHLS'))
                     upload_result['exist'].append({'name': file_name, 'md5': file_md5})
                     logger.error(f"文件：\"{file_name}\" 已存在，MD5: \"{file_md5}\"")
                     continue
@@ -734,6 +757,7 @@ def save_hls_data(request):
             try:
                 # 重置文件信息数据库自增长
                 reset_auto_increment()
+                reset_auto_increment_fileCT()   #重置数据库自增长
                 with transaction.atomic():  # 开启事务
                     FileInfo.objects.bulk_create(file_infos_to_save)    #批量保存文件数据
 
@@ -748,8 +772,7 @@ def save_hls_data(request):
                         for tag in tags:
                             tag = tag.strip()
                             if tag:
-                                reset_auto_increment_fileCT()   #重置数据库自增长
-                                create_file_relationship(file_info, appertain_name=tag)     #将文件信息与标签联系
+                                create_file_relationship(file_info, flag_name=tag)     #将文件信息与标签联系
 
                         # 关联分类
                         create_file_relationship(file_info, appertain_id=category_id)
@@ -763,3 +786,113 @@ def save_hls_data(request):
     # 如果为访问上传页面，则将分类数据传给页面
     categories = FileAppertain.objects.filter(flag="C")
     return render(request, 'f_proc/upload_hls.html', {'categories': categories})
+
+'''查询某个日期内文件数与数据库是否一致'''
+def checkAllFile_by_time(request):
+    queryTime = request.GET.get('queryData')  # 使用 GET 获取参数
+    
+    checkResult = {
+        "Total": None,
+        "Exist": {"Total": None, "fileList": []},
+        "Disappeared": {"Total": None, "fileList": []}
+    }
+    
+    # 检查是否提供了查询参数
+    if queryTime is None:
+        return render(request, 'f_proc/checkAllFile.html', checkResult)
+    
+    # 将输入日期格式转换为 Django 可以处理的格式
+    try:
+        parsed_date = datetime.strptime(queryTime, '%Y/%m/%d')  # 解析输入日期
+        parsed_date = timezone.make_aware(parsed_date)  # 将 naive datetime 转换为 aware datetime
+    except ValueError:
+        return render(request, 'f_proc/checkAllFile.html', {'error': '日期格式不正确'})
+    
+    # 获取该日期的开始和结束时间
+    start_date = parsed_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = parsed_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    # 查询在这个日期范围内的所有 FileInfo 记录
+    file_objects = FileInfo.objects.filter(created_time__range=(start_date, end_date))
+    checkResult['Total'] = len(file_objects)
+    
+    for file_object in file_objects:
+        # 确保 source_addr 是有效路径
+        if file_object.source_addr and os.path.exists(file_object.source_addr):
+            checkResult['Exist']['fileList'].append(f"文件名: {file_object.name}, MD5: {file_object.md5}")
+        else:
+            checkResult['Disappeared']['fileList'].append(f"文件名: {file_object.name}, MD5: {file_object.md5}")
+    
+    checkResult['Exist']['Total'] = len(checkResult['Exist']['fileList'])
+    checkResult['Disappeared']['Total'] = len(checkResult['Disappeared']['fileList'])
+    
+    # 返回 JSON 响应
+    return JsonResponse(checkResult)
+
+# 处理上传后遗失的文件，如误删除文件
+def upload_disappeared_files(request):
+    # 如果上传文件，则保存文件
+    if request.method == 'POST':
+        # 获取上传文件
+        files = request.FILES.getlist('file_field')
+        # 定义上传文件处理结果
+        upload_result = {"successful": [], "failed": []}
+
+        for file in files:
+            try:
+                file_md5 = get_md5(file)    #获取文件MD5值
+                # 判断文件是否已经存在
+                exist_file = FileInfo.objects.filter(md5=file_md5).first()
+                # 如果文件已上传，且非被常规删除
+                if exist_file and not os.path.exists(exist_file.source_addr) and exist_file.status != "delete":
+                    # 开始处理上传文件
+                    proccess_exist_file(file, exist_file)
+                    upload_result['successful'].append({'name': file.name, 'md5': file_md5})
+                else:
+                    upload_result['failed'].append({'name': file.name, 'md5': file_md5})
+                    logger.error(f"文件：\"{file.name}\" 已存在或已被常规删除，跳过处理。")
+            except Exception as e:
+                upload_result['failed'].append({'name': file.name})
+                logger.error(f"处理文件 \"{file.name}\" 时出错: {str(e)}")
+
+        return JsonResponse(upload_result)
+
+    # 如果为访问上传页面，则将分类数据传给页面
+    return render(request, 'f_proc/proc_dis_file.html')
+
+# 重新保存文件数据
+def proccess_exist_file(file, file_object):
+    chunk_size = 1024 * 1024  # 1MB
+    data = []
+    baseDir = file_object.source_addr
+
+    try:
+        # 创建文件块保存目录
+        os.makedirs(baseDir, exist_ok=True)
+
+        with file.open('rb') as f:
+            while True:
+                chunk_data = f.read(chunk_size)
+                if not chunk_data:
+                    break
+                chunk_uuid = str(uuid.uuid4())
+                chunk_path = os.path.join(baseDir, chunk_uuid)
+                with open(chunk_path, 'wb') as chunk_file:
+                    chunk_file.write(chunk_data)
+                data.append(chunk_path)
+
+        file_object.data = json.dumps(data)
+        file_object.save()
+    except Exception as e:
+        logger.error(f"保存文件 \"{file.name}\" 时出错: {str(e)}")
+        clean_up_files(data, baseDir)
+        raise
+
+# 移除已上传文件
+def clean_uploaded_files(data, baseDir):
+    """ 清理已创建的文件和目录 """
+    for path in data:
+        if os.path.exists(path):
+            os.remove(path)
+    if os.path.exists(baseDir):
+        shutil.rmtree(baseDir)

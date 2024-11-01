@@ -6,7 +6,7 @@ from django.db import models
 class FileInfo(models.Model):
     name = models.TextField()
     code = models.UUIDField(default=uuid.uuid4, editable=False)
-    md5 = models.CharField(max_length=32)
+    md5 = models.CharField(max_length=32, unique=True)
     size = models.DecimalField(max_digits=20, decimal_places=2, default=Decimal('0.00'))
     type = models.CharField(max_length=16, default="unknown")
     mime = models.CharField(max_length=128, default="unknown")

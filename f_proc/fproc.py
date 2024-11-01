@@ -92,7 +92,7 @@ def get_codec_info(input_video):
     for stream in codec_info.get('streams', []):
         if stream.get('codec_type') == 'video':
             video_codec = stream.get('codec_name')
-            bit_rate = stream.get('bit_rate')
+            bit_rate = int(stream.get('bit_rate'))
             r_frame_rate = stream.get('r_frame_rate')
             w, h = stream.get('width'), stream.get('height')
         elif stream.get('codec_type') == 'audio':
@@ -102,7 +102,7 @@ def get_codec_info(input_video):
     if r_frame_rate:
         try:
             num, denom = map(int, r_frame_rate.split('/'))
-            r_frame_rate = num / denom
+            r_frame_rate = int(num / denom)
         except ValueError:
             logger.error(f"无法解析帧率: {r_frame_rate}")
             r_frame_rate = None
@@ -154,9 +154,9 @@ def convert_to_encrypted_hls(input_video, output_dir, key_info):
     else:
         ffmpeg_command.extend(['-c:v', 'libx264'])  # 视频编码不符合，进行转换
         if bit_rate:
-            ffmpeg_command.extend(['-b:v', bit_rate])  # 设置视频比特率
+            ffmpeg_command.extend(['-b:v', f"{bit_rate}k"])  # 设置视频比特率
         if r_frame_rate:
-            ffmpeg_command.extend(['-r', r_frame_rate])  # 设置视频帧率
+            ffmpeg_command.extend(['-r', f"{r_frame_rate}"])  # 设置视频帧率
     
     if audio_codec == 'aac':
         ffmpeg_command.extend(['-c:a', 'copy'])  # 音频编码符合，直接复制

@@ -21,7 +21,6 @@ from f_proc import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('files/', include("f_proc.urls")),
-    path('user/', include("user.urls")),
     path('', include("show.urls")),
 ]
 

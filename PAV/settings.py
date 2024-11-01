@@ -29,7 +29,6 @@ DEBUG = False
 
 INSTALLED_APPS = [
     'show',
-    'user',
     'f_proc',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -75,19 +74,27 @@ WSGI_APPLICATION = 'PAV.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'ccpav'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'cheng00..'),
-        'HOST': os.getenv('DB_HOST', 'mysql_db'),  # 使用 'db' 而不是 'localhost'
-        'PORT': os.getenv('DB_PORT', '3306'),
-        # 非docker配置
         # 'ENGINE': 'django.db.backends.mysql',
-        # 'NAME': 'ccpav',
-        # 'HOST': 'localhost',
-        # 'USER': 'root',
-        # 'PASSWORD': 'cheng00..',
-        # 'port': '3306',
+        # 'NAME': os.getenv('DB_NAME', 'ccpav'),
+        # 'USER': os.getenv('DB_USER', 'root'),
+        # 'PASSWORD': os.getenv('DB_PASSWORD', 'cheng00..'),
+        # 'HOST': os.getenv('DB_HOST', 'mysql_db'),  # 使用 'db' 而不是 'localhost'
+        # 'PORT': os.getenv('DB_PORT', '3306'),
+        # 'OPTIONS': {
+        #     'charset': 'utf8mb4',  # 设置字符集为 utf8mb4
+        #     'init_command': "SET sql_mode='STRICT_TRANS_TABLES', innodb_strict_mode=1",
+        # },
+        # 非docker配置
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'ccpav',
+        'HOST': 'localhost',
+        'USER': 'root',
+        'PASSWORD': 'cheng00..',
+        'port': '3306',
+        'OPTIONS': {
+            'charset': 'utf8mb4',  # 设置字符集为 utf8mb4
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES', innodb_strict_mode=1",
+        },
     }
 }
 
@@ -150,13 +157,14 @@ ALLOWED_HOSTS = ['*']
 # 允许较大文件的上传
 DATA_UPLOAD_MAX_MEMORY_SIZE = 107374182400  # 100GB
 
-# 配置日志文件
+
+#配置日志文件模块
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
         'file': {
-            'level': 'ERROR',
+            'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR,'logs', 'syslog.log'),
         },
@@ -172,7 +180,7 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['file', 'console'],
-            'level': 'DEBUG',
+            'level': 'ERROR',
             'propagate': True,
         },
         'f_proc': {
