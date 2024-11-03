@@ -25,6 +25,7 @@ urlpatterns = [
     path("upload/", views.index_upload, name="upload"),     #上传文件页面
     path("upload_dir/", views.upload_dir, name="upload_dir"),   #上传文件夹页面
     path("upload_hls/", views.save_hls_data, name="save_hls_data"),     #上传视频流页面
+    path("upload_hls_act2/", views.save_hls_data_act2, name="save_hls_data_act2"),     #上传视频流页面
     path("upload_files/", views.save_file_data, name="save_file_data"),     #处理上传文件
     path("upload_disappeared_files/", views.upload_disappeared_files, name="upload_disappeared_files"),    #处理上传后非常规删除的文件
     
