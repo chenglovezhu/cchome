@@ -1,0 +1,232 @@
+/* General Reset */
+html, body, a, body, button, form, header, i, img, input, label, li, nav, p, span, ul {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 1em;
+    line-height: 1.3em;
+    font-family: inherit;
+    text-decoration: none;
+    box-sizing: border-box;
+    color: inherit;
+    outline: none;
+    border-style: solid;
+    border-color: inherit;
+    text-overflow: ellipsis;
+    vertical-align: baseline;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Placeholder Style */
+::-webkit-input-placeholder,
+:-moz-placeholder,
+::-moz-placeholder,
+:-ms-input-placeholder {
+    color: inherit;
+    opacity: .66;
+}
+
+/* General Styles */
+html {
+    font-family: 'Source Sans Pro', Arial, sans;
+    font-size: 14px;
+    color: #ddd;
+}
+
+body {
+    height: 100%;
+    width: 100%;
+    min-width: 800px;
+    background: #171717;
+    text-align: center;
+}
+
+/* Header Styles */
+#header {
+    z-index: 200;
+    position: fixed;
+    top: 0;
+    height: 50px;
+    width: 100%;
+    min-width: 640px;
+    display: flex;
+    align-items: center;
+    font-size: 1.1em;
+    white-space: nowrap;
+    background-color: #212427;
+    background-image: linear-gradient(to bottom, #292c2f 0, #191c1f 100%);
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, .75);
+    box-shadow: inset 0 0 0 1px rgba(31, 31, 31, .66), 0 0 10px rgba(0, 0, 0, .75);
+}
+
+#header img {
+    vertical-align: middle;
+    position: relative;
+    top: -2px;
+}
+
+@media (max-width: 639px) {
+    #header {
+        position: absolute;
+        min-width: 800px;
+    }
+}
+
+/* Logo Styles */
+#logo {
+    line-height: 50px;
+    padding: 0 1em 0 .5em;
+}
+
+img {
+    display: inline-block;
+    box-sizing: content-box;
+}
+
+/* Anchor Styles */
+a {
+    transition-duration: .25s;
+    transition-property: color, background, opacity, text-shadow, box-shadow, border-color;
+}
+
+a:active, a:focus, a:hover {
+    text-shadow: 0 0 2px rgba(220, 255, 255, .3);
+}
+
+/* List Styles */
+ul li {
+    list-style-type: none;
+}
+
+ul li:hover {
+    font-size: large;
+}
+
+/* Search Bar */
+#header-search {
+    flex-grow: 1;
+    margin-left: 1em;
+    display: flex;
+    align-items: center;
+}
+
+#header-search button {
+    width: 2em;
+    height: 2em;
+    cursor: pointer;
+    color: #aaa;
+    background-color: #222;
+    background-image: linear-gradient(to bottom, #242424 0, #1f1f1f 100%);
+    border-width: 1px 1px 1px 0;
+    border-color: #000 #252525 #262626 #000;
+    border-radius: 0 3px 3px 0;
+}
+
+.header-search-input-frame {
+    flex-grow: 1;
+    max-width: 32em;
+    display: flex;
+    border-width: 1px 0 1px 1px;
+    border-color: #000 #252525 #262626 #000;
+    border-radius: 3px 0 0 3px;
+    background-color: #1b1b1b;
+    background-image: linear-gradient(to bottom, #191919 0, #1c1c1c 100%);
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, .3);
+}
+
+.header-search-input-frame > input {
+    flex-grow: 1;
+    height: 2em;
+    line-height: 2em;
+    padding: 0 .5em;
+    background: none;
+    box-shadow: none;
+}
+
+/* Topmenu Styles */
+.topmenu {
+    position: relative;
+    font-family: Montserrat, 'Source Sans Pro', Arial, sans;
+    font-variant: small-caps;
+    line-height: 50px;
+    display: inline-block;
+    vertical-align: top;
+    text-align: center;
+}
+
+.topmenu a {
+    position: relative;
+    padding: 0 .5em;
+}
+
+.topmenu a, .topmenu li, .topmenu ul {
+    display: inline-block;
+    line-height: inherit;
+}
+
+.topmenu .topmenu-primary {
+    line-height: 50px;
+}
+
+.topmenu .topmenu-primary > li {
+    display: inline-block;
+    padding: 0 .5em;
+    border-right: 1px solid rgba(0, 0, 0, .5);
+}
+
+.topmenu .topmenu-primary .latest {
+    color: #ad3;
+    border-left: 1px solid rgba(0, 0, 0, .5);
+}
+
+.topmenu .topmenu-primary .hot {
+    color: #f43;
+}
+
+.topmenu .topmenu-primary .toplist {
+    color: #b760f0;
+}
+
+.topmenu .topmenu-primary .upload {
+    color: rgb(18, 185, 154);
+}
+
+.topmenu .topmenu-primary .v2hls {
+    color: rgb(240, 0, 108);
+}
+
+.topmenu .topmenu-primary .trash {
+    color: rgb(195, 191, 196);
+}
+
+.topmenu .topmenu-primary i {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Button Styles */
+.button {
+    display: inline-block;
+    padding: .5em 1em;
+    text-align: center;
+    cursor: pointer;
+    color: #ddd;
+    text-shadow: -1px -1px 0 #000;
+    border-radius: 3px;
+    background-size: 100% 150%;
+    background-position: 0 100%;
+    transition-property: color, background, text-shadow, box-shadow, border-color;
+    transition-duration: .25s;
+}
+
+#userpanel .btnRegister{
+    background-color: #ad3;
+    background-image: linear-gradient(to bottom, #ad3 0, rgb(60, 73, 30) 100%);
+}
+
+#userpanel .btnLogin{
+    margin-right: 8px;
+    background-color: #204650;
+    background-image: linear-gradient(to bottom, #275660 0, #183640 100%);
+}

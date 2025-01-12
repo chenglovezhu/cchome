@@ -1,0 +1,89 @@
+{% extends "common/base.html" %} 
+
+{% block cj %}
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'files/files.css' %}" />
+{% endblock %}
+
+{% block header %} 
+{% include 'common/nav.html'%} 
+{% endblock %} 
+
+{% block content %}
+    <div id="v2hls" class="container mt-4" style="padding-top: 120px;">
+        <div class="row justify-content-center v2hls">
+            <div class="col-md-6">
+
+                <form id="md5-form" method="get" class="input-group">
+                    <input type="text" id="md5-input" name="q" class="form-control rounded" placeholder="视频文件转换..." aria-label="Search"/>
+                    <button class="btn btn-secondary rounded-3 v2hls-btn" type="submit">开始转换</button>
+                </form>
+
+                <div id="message" class="mt-2"></div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.getElementById("md5-form");
+            const input = document.getElementById("md5-input");
+            const messageDiv = document.getElementById("message");
+
+            form.addEventListener("submit", function (event) {
+                event.preventDefault(); // 防止表单默认提交
+
+                const md5Value = input.value.trim();
+
+                if (!isValidMD5(md5Value)) {
+                    messageDiv.textContent = "请输入有效的 MD5 值。";
+                    messageDiv.className = "text-danger";
+                    return;
+                }
+
+                // 创建 WebSocket 连接
+               let socket = new WebSocket(`ws://127.0.0.1:8899/ws/task_status/${md5Value}/`);
+
+                socket.onopen = function() {
+                    messageDiv.textContent = "实时状态通道已建立";
+                    messageDiv.className = "text-success";
+                    // 连接成功后请求数据
+                    fetch(`http://127.0.0.1:8888/files/v2hls/${md5Value}`)
+                        .then((response) => {
+                            if (!response.ok) {
+                                throw new Error("请求失败");
+                            }
+                            return response.json();
+                        })
+                        .then((data) => {
+                             console.log(` ${data.result}`); // 显示请求结果
+                        })
+                        .catch((error) => {
+                            console.log("请求失败，请稍后再试。");
+                        });
+                };
+
+                socket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    messageDiv.textContent = ` ${data.message}`; // 显示 WebSocket 消息
+                };
+
+                socket.onerror = function(error) {
+                    messageDiv.textContent = "WebSocket 连接发生错误。";
+                    messageDiv.className = "text-danger";
+                };
+
+                socket.onclose = function() {
+                    messageDiv.textContent = "WebSocket 连接已关闭。";
+                    messageDiv.className = "text-warning";
+                };
+            });
+
+            function isValidMD5(value) {
+                const md5Regex = /^[a-fA-F0-9]{32}$/;
+                return md5Regex.test(value);
+            }
+        });
+    </script>
+{%endblock %}

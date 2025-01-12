@@ -1,0 +1,40 @@
+{% load static %}
+<a id="logo" href="#">
+  <img src="{% static 'mds/logo.png' %}" alt="CCDocuments"/>
+</a>
+<div class="topmenu collapsed">
+  <nav class="topmenu-full">
+    <ul class="topmenu-primary">
+      <li>
+        <a class="latest" href="{% url 'get_file_objs' %}"><i class="fa fa-clock-o" aria-hidden="true"><span>Latest</span></i></a>
+      </li>
+      <li>
+        <a class="hot" href="{% url 'get_hot_file_objs' %}"><i class="fa fa-fire" aria-hidden="true"><span>Hot</span></i></a>
+      </li>
+      <li>
+        <a class="toplist" href="{% url 'get_favorites_file_objs' %}"><i class="fa fa-pie-chart" aria-hidden="true"><span>Toplist</span></i></a>
+      </li>
+      <li>
+        <a class="upload" href="{% url 'upload' %}"><i class="fa fa-upload" aria-hidden="true"><span>Upload</span></i></a>
+      </li>
+      <li>
+        <a class="v2hls" href="{% url 'v2hls' %}"><i class="fa fa-refresh" aria-hidden="true"><span>V2hls</span></i></a>
+      </li>
+      <li>
+        <a class="trash" href="{% url 'trash_file_objs' %}"><i class="fa fa-trash-o" aria-hidden="true"><span>Trash</span></i></a>
+      </li>
+    </ul>
+  </nav>
+</div>
+
+<form action="{% url 'search_file_objs' %}" method="get" id="header-search" class="header-search-type-text">
+  <div class="header-search-input-frame">
+    <input type="search" name="searchFiles" id="header-search-text" placeholder="Search..."/>
+  </div>
+  <button><i class="fa fa-search"></i></button>
+</form>
+
+<div id="userpanel">
+  <a class="button btnRegister" href="#"> Register </a>
+  <a class="button btnLogin" href="#"> Login </a>
+</div>

@@ -1,0 +1,27 @@
+.container #selectUploadFiles {
+  padding: 72px;
+  border: 1px solid gray;
+}
+
+
+#v2hls .v2hls-btn{
+  margin-left: 4px;
+}
+
+#v2hls .v2hls-btn:hover{
+  background-color: green;
+}
+
+#previewModal .filePreviewModal{
+  color: rgb(3, 72, 31);
+}
+
+#fileList li{
+  color: aliceblue;
+  background-color: #353434;
+}
+
+#fileList li .file-size{
+  margin-left: 12px;
+}
+

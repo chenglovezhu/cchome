@@ -1,0 +1,200 @@
+{% extends "common/base.html" %} 
+
+{% block cj %}
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'files/files.css' %}" />
+{% endblock %}
+
+{% block header %} 
+{% include 'common/nav.html'%} 
+{% endblock %} 
+
+{% block content %}
+  <div class="w-75 mx-auto" style="padding-top: 72px;">
+    <div class="d-flex flex-column align-items-center">
+      
+      <div class="row w-100">
+        <!--文件分类-->
+        <div class="col">
+          <label class="m-1 pull-left" for="fileCategory">文件分类</label>
+          <select id="fileCategory" class="form-select" aria-label="选择文件分类" name="fileCategory">
+            <option selected>选择分类......</option>
+              {% for category in categories %}
+              <option value="{{ category.id }}">{{ category.name }}</option>
+              {% endfor %}
+          </select>
+        </div>
+
+        <!--文件级别-->
+        <div class="col">
+          <label class="m-1 pull-left" for="fileLevel">文件级别</label>
+          <select id="fileLevel" class="form-select" aria-label="选择文件级别" name="fileLevel">
+            <option selected>选择文件等级</option>
+            <option value="SFW">SFW</option>
+            <option value="Sketchy">Sketchy</option>
+            <option value="NSFW">NSFW</option>
+          </select>
+        </div>
+      </div>
+      
+      <!--文件标签-->
+      <div class="row w-100 mt-4">
+        <div class="col">
+          <label class="m-1 pull-left" for="manyTags">文件标签</label>
+          <input type="text" class="form-control rounded-3" id="manyTags" placeholder="输入标签（以逗号分隔）"/>
+        </div>
+      </div>
+
+      <!--选择上传文件夹-->
+      <div class="row w-100 rounded-3 mt-4">
+        <div class="col">
+          <label class="m-1 pull-left" for="folderInput">选择上传文件</label>
+          <input type="file" class="form-control rounded-3 bg-white" id="folderInput" webkitdirectory multiple/>
+        </div>
+      </div>
+    </div>
+    
+    <!--提交按钮-->
+    <div class="mt-3">
+      <button class="btn btn-primary me-3 pull-right" id="uploadButton">Go</button>
+    </div>
+    
+    <!--上传文件显示列表-->
+    <div id="fileList" style="margin-top: 20px;"></div>
+
+  </div>
+
+  <script>
+    document.getElementById("uploadButton").addEventListener("click", function () {
+      // 获取上传文件
+      const input = document.getElementById("folderInput");
+      const files = input.files;
+
+      if (files.length === 0) {
+        console.warn("请选择文件！");
+        return;
+      }
+      // 清空文件列表，以便重新显示上传文件列表
+      document.getElementById("fileList").innerHTML = "";
+
+      //遍历上传文件
+      Array.from(files).forEach((file) => {
+        const [album, subject] = file.webkitRelativePath.split("/");
+        const fileItem = createFileItem(file); //仅仅用作显示
+        document.getElementById("fileList").appendChild(fileItem); //仅仅用作显示
+        // 构建上传表单
+        const formData = createFormData(file, album, subject);
+        // 开始上传文件
+        uploadFile(formData, fileItem);
+      });
+    });
+
+    // 创建文件项
+    function createFileItem(file) {
+      const fileItem = document.createElement("div");
+      fileItem.classList.add("mt-2", "border", "p-2", "rounded", "shadow-sm");
+      fileItem.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+          <span>文件名: ${file.name}</span>
+          <span class="upload-status"></span>
+        </div>
+        <div class="progress mt-2">
+          <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+      `;
+
+      return fileItem;
+    }
+
+    // 创建 FormData 对象
+    function createFormData(file, album, subject) {
+      const formData = new FormData();
+      formData.append("file_field", file);
+      formData.append("album", album);
+      formData.append("subject", subject);
+      formData.append("fileCategory", document.getElementById("fileCategory").value);
+      formData.append("fileLevel", document.getElementById("fileLevel").value);
+      formData.append("manyTags", document.getElementById("manyTags").value);
+      
+      return formData;
+    }
+
+    // 上传文件
+    function uploadFile(formData, fileItem) {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", '{% url "save_files" %}');
+
+      xhr.upload.onprogress = function (event) {
+        updateProgress(event, fileItem);
+      };
+
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            handleUploadResponse(response, fileItem);
+          } catch (e) {
+            console.error("响应解析失败:", e);
+            updateUploadStatus(fileItem, "响应解析失败", "text-danger");
+          }
+        } else {
+          updateUploadStatus(fileItem, "上传失败", "text-danger");
+        }
+      };
+
+      xhr.onerror = function () {
+        updateUploadStatus(fileItem, "请求错误", "text-danger");
+      };
+
+      xhr.send(formData);
+    }
+
+    // 更新进度条
+    function updateProgress(event, fileItem) {
+      if (event.lengthComputable) {
+        const percentComplete = (event.loaded / event.total) * 100;
+        const progressBar = fileItem.querySelector(".progress-bar");
+        progressBar.style.width = percentComplete + "%";
+        progressBar.setAttribute("aria-valuenow", percentComplete);
+      }
+    }
+
+    // 处理上传响应
+    function handleUploadResponse(response, fileItem) {
+      const fileName = fileItem.querySelector('span').textContent.replace('文件名: ', '');
+      
+      if (response.successful.length > 0 && response.successful.some(f => f.name === fileName)) {
+        updateUploadStatus(fileItem, "上传成功", "text-success");
+        setProgress(fileItem, "上传成功");
+      } else if (response.exist.length > 0 && response.exist.some(f => f.name === fileName)) {
+        const file = response.exist.find(f => f.name === fileName);
+        updateUploadStatus(fileItem, `${file.md5}已存在`, "text-warning");
+        setProgress(fileItem, "文件存在");
+      } else if (response.failed.length > 0 && response.failed.some(f => f.name === fileName)) {
+        updateUploadStatus(fileItem, "上传失败", "text-danger");
+        setProgress(fileItem, "上传失败");
+      }
+    }
+
+    // 更新上传状态
+    function updateUploadStatus(fileItem, message, statusClass) {
+      const statusSpan = fileItem.querySelector('.upload-status');
+      statusSpan.textContent = message;
+      statusSpan.className = `ms-2 ${statusClass}`; // 添加 margin 左边距
+    }
+
+    // 设置进度条状态
+    function setProgress(fileItem, status) {
+      const progressBar = fileItem.querySelector(".progress-bar");
+      const progressStatusMap = {
+        "上传成功": "bg-success",
+        "文件存在": "bg-warning",
+        "上传失败": "bg-danger"
+      };
+      
+      progressBar.style.width = "100%";
+      progressBar.setAttribute("aria-valuenow", 100);
+      progressBar.classList.add(progressStatusMap[status]);
+    }
+  </script>
+{%endblock %}

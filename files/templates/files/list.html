@@ -1,0 +1,181 @@
+{% extends "common/base.html" %} 
+
+{% block cj %}
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'files/files.css' %}" />
+{% endblock %}
+
+{% block header %} 
+{% include 'common/nav.html'%} 
+{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 72px;">
+    <!-- File List -->
+    <div class="table-responsive rounded-2 overflow-hidden">
+        <!--文件信息主体-->
+        <table class="table table-striped table-bordered table-dark">
+        <thead class="thead-dark">
+            <tr>
+            <th style="width: 15%" class="text-center align-middle">Name</th>
+            <th style="width: 15%" class="text-center align-middle">MD5</th>
+            <th style="width: 10%" class="text-center align-middle">Size</th>
+            <th style="width: 5%" class="text-center align-middle">Type</th>
+            <th style="width: 5%" class="text-center align-middle">Category</th>
+            <th style="width: 10%" class="text-center align-middle">Album</th>
+            <th style="width: 10%" class="text-center align-middle">Title</th>
+            <th style="width: 10%" class="text-center align-middle">Time</th>
+            <th style="width: 10%" class="text-center align-middle">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in page_obj.object_list %}
+            <tr>
+            <td class="text-truncate text-center align-middle" style="max-width: 150px;" onclick="previewFile('{{ file.md5 }}', '{{ file.mime }}')">
+                {{ file.name }}
+            </td>
+            <td class="text-truncate text-center align-middle" style="max-width: 160px;">
+                {{ file.md5 }}
+            </td>
+            <td class="text-center align-middle sizeFormat">{{ file.size }}</td>
+            <td class="text-center align-middle">{{ file.type }}</td>
+            <td class="text-center align-middle">
+                {% for relationship in file.relationships.all %}
+                {% if relationship.file_appertain.flag == "C" %}
+                    {{ relationship.file_appertain.name }}
+                {% endif %}
+                {% endfor %}
+            </td>
+            <td class="text-center align-middle">{{ file.album }}</td>
+            <td class="text-truncate text-center align-middle" style="max-width: 160px;">
+                {{ file.subject }}
+            </td>
+            <td class="text-center align-middle created-time">{{ file.created_time }}</td>
+
+            <!--操作按钮-->
+            <td class="text-center align-middle"> 
+                <div class="d-flex flex-row">
+                <button class="btn btn-sm" onclick="editFileInfo('{{ file.md5 }}', '{{ file.name }}', '{{ file.album }}', '{{ file.subject }}', '{{ file.remark }}')">
+                    <i class="fa fa-pencil-square-o fa-2x" style="color: white;"></i>
+                </button>
+                <button class="btn btn-sm" onclick="downloadFile('{{ file.md5 }}', '{{ file.mime }}')">
+                    <i class="fa fa-download fa-2x" style="color: green;"></i>
+                </button>
+                <button class="btn btn-sm" onclick="deleteFile('{{ file.md5 }}')">
+                    <i class="fa fa-trash-o fa-2x" style="color: red;"></i>
+                </button>
+                </div>
+            </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+            <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+        {% endif %}
+
+        {% if page_obj.number > 3 %}
+        <li class="page-item">
+            <a class="page-link" href="?page=1">1</a>
+        </li>
+        {% if page_obj.number > 4 %}
+        <li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>
+        {% endif %}
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.number < page_obj.paginator.num_pages|add:"-2" %}
+        {% if page_obj.number < page_obj.paginator.num_pages|add:"-3" %}
+        <li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>
+        {% endif %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">{{ page_obj.paginator.num_pages }}</a>
+        </li>
+        {% endif %}
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+            <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+        {% endif %}
+        </ul>
+    </nav>
+
+
+    <!-- Preview Modal：用于显示信息 -->
+    <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-3 shadow-sm">
+            <div class="modal-body filePreviewModal">
+                <div id="previewContent" class="w-100 h-100 d-flex justify-content-center align-items-center">
+                    <!-- Dynamic content goes here -->
+                    
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- Update fileInfo Modal：用于更新文件信息 -->
+    <div class="modal fade" id="editFileInfo" tabindex="-1" aria-labelledby="editFileInfoModalLabel" aria-hidden="true"> 
+        <div class="modal-dialog modal-dialog-centered modal-lg"> 
+            <div class="modal-content" style="background-color: #1f21229c"> 
+                <form method="post" id="fileInfoForm" class="cc-ct-modal-form">
+                    <div class="modal-header"> 
+                        <h5 class="modal-title" id="editFileInfoModalLabel">更新文件信息</h5> 
+                    </div> 
+                    <div class="modal-body"> 
+                        <div class="mb-3 text-start"> 
+                            <label for="name" class="form-label ms-2">文件名称</label> 
+                            <input type="text" class="form-control" id="name" name="name" required="" /> 
+                        </div> 
+                        <div class="mb-3 text-start"> 
+                            <label for="album" class="form-label ms-2">文件领域</label> 
+                            <input type="text" class="form-control" id="album" name="album" required="" /> 
+                        </div> 
+                        <div class="mb-3 text-start"> 
+                            <label for="subject" class="form-label ms-2">文件标题</label> 
+                            <input type="text" class="form-control" id="subject" name="subject" required="" /> 
+                        </div> 
+                        <div class="mb-3 text-start"> 
+                            <label for="remark" class="form-label ms-2">Remark</label> 
+                            <input type="text" class="form-control" id="remark" name="remark" required="" /> 
+                        </div> 
+                    </div> 
+                    <div class="modal-footer"> 
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"> 取消 </button> 
+                        <button type="submit" name="update" class="btn btn-primary" id="updateBtn"> 更新 </button> 
+                    </div> 
+                </form> 
+            </div> 
+        </div> 
+    </div>
+
+{%endblock %}
+
+{% block extra_js %}
+    {% load static %}
+    <script src="{% static 'files/files.js' %}"></script>
+{% endblock %}
