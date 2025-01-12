@@ -1,3 +1,4 @@
+aiofiles==24.1.0
 amqp==5.3.1
 asgiref==3.8.1
 attrs==24.3.0

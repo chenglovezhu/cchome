@@ -77,14 +77,30 @@ ASGI_APPLICATION = 'pv.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'ccpav',
+#         'HOST': 'localhost',
+#         'USER': 'root',
+#         'PASSWORD': 'cheng00..',
+#         'port': '3306',
+#         'OPTIONS': {
+#             'charset': 'utf8mb4',  # 设置字符集为 utf8mb4
+#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES', innodb_strict_mode=1",
+#         },
+#     }
+# }
+
+# 使用docker时：
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'ccpav',
-        'HOST': 'localhost',
-        'USER': 'root',
-        'PASSWORD': 'cheng00..',
-        'port': '3306',
+        'NAME': os.getenv('DB_NAME', 'ccpav'),
+        'USER': os.getenv('DB_USER', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'cheng00..'),
+        'HOST': os.getenv('DB_HOST', 'mysql'),  # 使用 'db' 而不是 'localhost'
+        'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {
             'charset': 'utf8mb4',  # 设置字符集为 utf8mb4
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES', innodb_strict_mode=1",
@@ -92,22 +108,45 @@ DATABASES = {
     }
 }
 
+
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django_redis.cache.RedisCache',
+#         'LOCATION': 'redis://127.0.0.1:6379/1',
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#         }
+#     }
+# }
+
+# 使用docker时：
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'LOCATION': 'redis://redis:6379/1',  # 改为 Redis 服务容器的名称
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
     }
 }
 
+
 # 配置Channel Layer (推荐使用Redis)
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             "hosts": [('127.0.0.1', 6379)],  # Redis 地址
+#         },
+#     },
+# }
+
+# 使用docker时：
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],  # Redis 地址
+            "hosts": [('redis', 6379)],  # 改为 Redis 服务容器的名称
         },
     },
 }
@@ -167,8 +206,11 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 107374182400  # 100GB
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Celery 配置项
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # 设置消息队列为 Redis
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # 设置结果存储为 Redis
+# CELERY_BROKER_URL = 'redis://localhost:6379/0'  # 设置消息队列为 Redis
+# CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # 设置结果存储为 Redis
+# 使用docker时
+CELERY_BROKER_URL = 'redis://redis:6379/0'  # 设置消息队列为 Redis
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'  # 设置结果存储为 Redis
 CELERY_ACCEPT_CONTENT = ['json']  # 接受 json 格式的任务消息
 CELERY_TASK_SERIALIZER = 'json'  # 设置任务消息的序列化方式为 json
 CELERY_TIMEZONE = 'Asia/Shanghai'  # 设置时区（根据需要调整）
