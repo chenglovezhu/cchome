@@ -5,32 +5,31 @@ import shutil
 import aiofiles
 from tqdm import tqdm
 from django.utils import timezone
-from django.db.models import Q, Count
+from django.db.models import Q
 from django.db import transaction
+from django.core.cache import cache
+from .models import FileInfo, FileAppertain
+from .forms import FileInfoForm, FileAppertainForm
+from django.http import JsonResponse
+from django.http import HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
-from django.core.cache import cache
-from django.http import JsonResponse
 from django.core.paginator import Paginator
-from .models import FileInfo, FileAppertain, FileRelationship
+from asgiref.sync import sync_to_async
+from channels.layers import get_channel_layer
 from .tasks import save_file_data
 from .fproc import get_md5, get_image_wh, get_f_ext,handle_uploaded_file,generate_encryption_key,convert_to_encrypted_hls
-from .forms import FileInfoForm, FileAppertainForm
-from channels.layers import get_channel_layer
-from django.http import HttpResponseBadRequest
-from asgiref.sync import sync_to_async
+
 
 # Create your views here.
 # 设置日志
 logger = logging.getLogger("files")
-
 
 # 应用启动后加载数据到redis,数据以字典形式存在
 def load_data_to_cache(request):
     try:
         # 获取所有文件对象
         file_objs = FileInfo.objects.all()
-        
         # 遍历文件对象并将其缓存到redis中
         for file_obj in tqdm(file_objs, desc="正在加载数据", unit="Data"):
             # 准备缓存数据
@@ -54,14 +53,14 @@ def load_data_to_cache(request):
                 "status": file_obj.status,
                 "remark": file_obj.remark
             }
-            
+
             # 使用 md5 作为键，file_obj_json 作为值存入缓存
             cache.set(file_obj.md5, file_obj_data, timeout=60*60*24)  # 设置缓存过期时间为 24 小时
         
-        return JsonResponse({"status": "加载成功", "count": len(file_objs)})
+        return JsonResponse({"status": "加载成功", "已加载数据": len(file_objs)})
     except Exception as e:
         logger.error(f"加载数据到缓存时出错: {str(e)}")
-        return JsonResponse({"status": "加载失败", "count": 0})
+        return JsonResponse({"status": "加载失败", "已加量数据": 0})
 
 # 分类/标签管理
 def manage_appertain(request, pk=None):
@@ -121,7 +120,7 @@ def manage_appertain(request, pk=None):
     })
 
 # 获取文件对象
-def get_file_objs(request):
+def get_all_file_objs(request):
     try:
         file_info_list = FileInfo.objects.all().order_by('-created_time')
     except Exception as e:
@@ -627,27 +626,6 @@ async def vFile_to_HLS_task(md5):
             }
         )
         logger.error(f"处理视频文件 {md5} 时出现未知错误: {e}", exc_info=True)
-
-# 测试websocket所用
-async def test_send_message(request):
-    if request.method == "POST":
-        # 从查询参数中获取消息
-        message = request.GET.get('message', '')
-        if message:
-            # 获取 channel_layer
-            channel_layer = get_channel_layer()
-            # 向 'chat_room' 组发送消息
-            await channel_layer.group_send(
-                "chat_chat_room", # 与你的消费者中的组名一致
-                {
-                    'type': 'test',  # 消息类型，通常由消费者处理
-                    'message': "CCHHHHHHHHHHHHHHHHCC",  # 消息内容
-                }
-            )
-
-            return JsonResponse({"status": "Message sent!"})
-        return HttpResponseBadRequest("No message provided")
-    return HttpResponseBadRequest("Invalid HTTP method")
 
 # 随机处理页
 def random_all(request):

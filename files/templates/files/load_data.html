@@ -1,0 +1,24 @@
+{% extends "common/base.html" %} 
+
+{% block cj %}
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'files/files.css' %}" />
+{% endblock %}
+
+{% block header %} 
+{% include 'common/nav.html'%} 
+{% endblock %} 
+
+{% block content %}
+    <div id="load_data" class="container mt-4" style="padding-top: 180px;">
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center">
+                <form id="md5-form" method="get" onsubmit="startLoading(event)">
+                    <button class="btn btn-secondary rounded-3" type="submit">加载数据</button>
+                </form>
+
+                <div id="progress" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

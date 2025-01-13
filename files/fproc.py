@@ -7,8 +7,7 @@ import logging
 from PIL import Image
 from pathlib import Path
 from django.db import connection
-from asgiref.sync import sync_to_async
-from .models import FileRelationship, FileAppertain, FileInfo
+from .models import FileRelationship, FileAppertain
 
 # 设置日志
 logger = logging.getLogger("files")
@@ -77,8 +76,9 @@ def handle_uploaded_file(file, fileDir):
                     os.remove(chunk_path)
                 except Exception as del_err:
                     logger.error(f"删除文件块失败 {chunk_path}: {str(del_err)}")
+        # 记录操作日志
         logger.error(f"上传文件出错，请检查：{str(e)}")
-        
+        # 返回False
         return False
         
 # 关联文件与分类/标签

@@ -11,7 +11,7 @@ urlpatterns = [
     
     # 查询文件
     path("search/", views.search, name="search_file_objs"),   #查询相关文件信息
-    path("list/", views.get_file_objs, name="get_file_objs"),   #查询所有文件信息
+    path("list/", views.get_all_file_objs, name="get_all_file_objs"),   #查询所有文件信息
     path("hot/", views.get_hot_file_objs, name="get_hot_file_objs"),   #查询火热文件信息
     path("favorites/", views.get_favorites_file_objs, name="get_favorites_file_objs"),   #查询收藏文件信息
     path("trash/", views.trash_file_objs, name="trash_file_objs"),   #查询所有删除文件信息
@@ -35,7 +35,5 @@ urlpatterns = [
     
     # 删除文件信息
     path("delete/", views.delete_file, name="delete_file"),
-
-    # 测试所用
-    path('send_message/',views.test_send_message, name='test_send_message'),
+    
 ]
